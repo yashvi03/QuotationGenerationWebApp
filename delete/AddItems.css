@@ -1,0 +1,230 @@
+/* General Container Styles
+
+:root {
+  --accent-color: #ff913c;
+  --secondary-color: #fdfbef;
+  --active-text-color: black;
+  --inactive-text-color: grey;
+  --reset: #e74c3c;
+}
+
+body {
+  padding: 0;
+  margin: 0;
+}
+
+form {
+  background: var(--secondary-color);
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.accordion-header
+{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fdfbef;
+  margin: 0;
+}
+
+.accordion-header h2
+{
+  color: #FF913C;
+
+}
+
+.accordion-icon
+{
+  color: #FF913C;
+  font-size: 20px;
+} 
+
+
+.material-symbols-outlined {
+    color: rgba(50, 147, 111, 0.8);
+  font-variation-settings:
+  'FILL' 1,
+  'wght' 400,
+  'GRAD' 0,
+  'opsz' 24
+}
+
+
+.section-heading {
+  font-weight: bold;
+}
+
+.section-heading.completed {
+  color: grey;
+}
+
+
+@media (min-width: 768px) {
+  button {
+    margin: 4px;
+  } 
+}
+
+h3 {
+  margin-bottom: 15px;
+  font-size: 1.2em;
+  color: var(--active-text-color);
+  text-align: start;
+  display: flex;
+  justify-content: space-between;
+}
+
+label {
+  font-weight: bold;
+  display: block;
+  margin: 10px 0 5px;
+}
+
+.materials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  justify-content: start;
+}
+
+div.materials div {
+  text-align: center;
+}
+
+
+input[type="radio"]:checked + label img {
+  border: 2px solid var(--accent-color);
+  border-radius: 8px;
+}
+
+input[type="radio"]:checked + label {
+  color: var(--accent-color);
+}
+
+.material-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--inactive-text-color);
+}
+
+img {
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  background-color: white;
+}
+
+@media (min-width: 480px) {
+  label img {
+    width: 80px;
+    height: 80px;
+  }
+}
+
+select {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 20px;
+  margin-top: 20px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 1em;
+}
+
+div.items {
+  margin-top: 20px;
+}
+
+.items-container {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.items-container label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.qty {
+  display: flex;
+  gap: 8px;
+  margin-left: 20px;
+}
+
+div.items label {
+  display: flex;
+  align-items: center;
+}
+
+div.items input[type="number"] {
+  width: 60px;
+  padding: 5px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+
+
+button:disabled {
+  background: #ddd;
+  cursor: not-allowed;
+}
+
+button[type="button"]:last-child {
+  background: var(--reset);
+  margin-top: 10px;
+}
+
+p {
+  color: #444;
+  text-align: center;
+  font-size: 0.95em;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+ul li {
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.change-btn {
+  background: none;
+  font-weight: bold;
+  border: none;
+  color: orange;
+  cursor: pointer;
+  margin-left: 10px;
+  margin: 0;
+  text-align: end;
+  padding: 0;
+  font-size: 14px;
+}
+.change-btn:hover {
+  color: darkorange;
+}
+
+
+@media (min-width: 480px) {
+  div.items div {
+    justify-content: space-between;
+  }
+
+  button {
+    width: auto;
+    padding: 10px 30px;
+    margin: 4px;
+  }
+} */

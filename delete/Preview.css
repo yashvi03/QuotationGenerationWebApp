@@ -1,0 +1,70 @@
+General Styling
+body {
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f9f9f9;
+    color: #333;
+  }
+  
+  h1 {
+    text-align: center;
+    color: #4CAF50;
+    margin-top: 20px;
+  }
+  
+  h2 {
+    margin-bottom: 10px;
+    color: #4CAF50;
+  }
+  
+  /* Container Styling */
+  .preview-container {
+    width: 80%;
+    margin: 20px auto;
+    background-color: #fff;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Card Styling */
+  .card {
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .customer-card {
+    border-left: 5px solid #4CAF50;
+  }
+  
+  .item-card {
+    border-left: 5px solid #FF9800;
+  }
+  
+  .total-card {
+    border-left: 5px solid #4CAF50;
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+    color: #4CAF50;
+  }
+  
+  /* Typography */
+  p {
+    margin: 5px 0;
+    font-size: 16px;
+  }
+  
+  p span {
+    font-weight: bold;
+  }
+  
+  /* Items Section */
+  .items-section {
+    margin-top: 20px;
+  }
+  
