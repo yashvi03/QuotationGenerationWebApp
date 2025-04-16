@@ -1,4 +1,4 @@
-import "../pages/HomePage.css";
+// import "../pages/HomePage.css";
 
 const Card = ({ type, size, items, onEdit, onDelete }) => {
   return (
