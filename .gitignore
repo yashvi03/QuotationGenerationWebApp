@@ -1,0 +1,29 @@
+# Docker
+pgdata/
+*.dockerignore
+
+# Root-level sensitive files
+.env
+
+# Project logs
+*.log
+
+# Additional editor files (if not in subdirectories)
+.idea/
+.DS_Store
+
+# Optional: Include frontend/backend ignores for clarity
+# Frontend
+webAppFrontend/node_modules/
+webAppFrontend/dist/
+webAppFrontend/dist-ssr/
+webAppFrontend/build/
+webAppFrontend/.cache/
+
+# Backend
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/.pytest_cache/
+backend/*.egg-info/
+backend/.env
