@@ -1,57 +1,17 @@
-
-# services:
-#   backend:
-#     build: ./backend
-#     image: my-flask-app
-#     env_file:
-#       - backend/.env
-#     expose:
-#       - "5000"
-#     depends_on:
-#       - db
-
-#   nginx:
-#     build:
-#       context: ./webAppFrontend
-#     image: my-react-app
-#     ports:
-#       - "80:80"
-#     depends_on:
-#       - backend
-#     volumes:
-#       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-
-#   db:
-#     image: postgres:13
-#     environment:
-#       POSTGRES_USER: postgres
-#       POSTGRES_PASSWORD: Yashvi@2003
-#       POSTGRES_DB: puranmalsons
-#     volumes:
-#       - pgdata:/var/lib/postgresql/data
-#     ports:
-#       - "5432:5432"
-
-# volumes:
-#   pgdata:
-#     driver: local
-
-
 services:
   backend:
     build: ./backend
     image: my-flask-app
-    env_file:
-      - backend/.env
     ports:
-      - "5000:5000"  # Map port 5000 to host
+      - "5000:5000"
     expose:
       - "5000"
+    env_file:
+      - ./backend/.env
     environment:
       - GUNICORN_CMD_ARGS=--workers=2 --threads=4 --timeout=120 --log-level=debug --bind=0.0.0.0:5000
-    depends_on:
-      db:
-        condition: service_healthy
+    networks:
+      - app-network
 
   nginx:
     build:
@@ -63,23 +23,9 @@ services:
       - backend
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - app-network
 
-  db:
-    image: postgres:13
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Yashvi@2003
-      POSTGRES_DB: puranmalsons
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  pgdata:
-    driver: local
+networks:
+  app-network:
+    driver: bridge
