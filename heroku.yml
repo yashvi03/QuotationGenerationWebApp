@@ -1,11 +1,11 @@
 build:
-       docker:
-         web: webAppFrontend/Dockerfile
-         api: backend/Dockerfile
-     run:
-       web:
-         image: web
-         command: nginx -g "daemon off;"
-       api:
-         image: api
-         command: gunicorn --bind 0.0.0.0:$PORT run:app
+     docker:
+       web: webAppFrontend/Dockerfile
+       api: backend/Dockerfile
+   run:
+     web:
+       image: web
+       command: nginx -g "daemon off;"
+     api:
+       image: api
+       command: gunicorn --bind 0.0.0.0:$PORT run:app
