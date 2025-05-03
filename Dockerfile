@@ -1,4 +1,4 @@
-# Stage 1: Build React frontend
+# Build React
 FROM node:18 AS build
 WORKDIR /app
 COPY webAppFrontend/package.json webAppFrontend/package-lock.json ./
@@ -6,7 +6,7 @@ RUN npm install
 COPY webAppFrontend/ .
 RUN npm run build
 
-# Stage 2: Build backend and serve with Nginx
+# Flask + Nginx
 FROM python:3.9-slim
 RUN apt-get update && apt-get install -y nginx
 WORKDIR /app
