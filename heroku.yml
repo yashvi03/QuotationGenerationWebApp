@@ -5,7 +5,7 @@ build:
 run:
   web:
     command:
-      - nginx -g "daemon off;"
+      - /docker-entrypoint.sh
   api:
     command:
       - gunicorn --bind 0.0.0.0:$PORT -w 4 run:app
