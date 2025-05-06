@@ -23,8 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
-# Production build (optional, include if deploying built frontend separately)
-build/
+
 # Cache files (e.g., from Vite, Parcel)
 .cache/
 # Frontend-specific temp files
