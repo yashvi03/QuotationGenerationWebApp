@@ -1,7 +1,7 @@
 build:
   docker:
-    web: webAppFrontend/Dockerfile.web
-    api: backend/Dockerfile.api
+    web: webAppFrontend/Dockerfile
+    api: backend/Dockerfile
 run:
   web:
     command:
