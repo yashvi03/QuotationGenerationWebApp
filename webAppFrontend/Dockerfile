@@ -5,10 +5,6 @@ RUN npm install
 COPY . .
 RUN npm run build
 FROM nginx:alpine
-RUN apk add --no-cache gettext
-COPY --from=build /app/build /usr/share/nginx/html
-COPY default.conf.template /etc/nginx/conf.d/default.conf.template
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
+COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE $PORT
-CMD ["/start.sh"]
+CMD ["nginx", "-g", "daemon off;"]
