@@ -15,11 +15,13 @@ services:
       context: ./webAppFrontend
     image: my-react-app
     ports:
-      - "80:80"
+      - "${WEB_PORT:-80}:${WEB_PORT:-80}"
     depends_on:
       - api
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    environment:
+      - PORT=${WEB_PORT:-80}
     networks:
       - app-network
 networks:
