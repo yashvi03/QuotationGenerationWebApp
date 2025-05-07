@@ -36,7 +36,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
     const params = new URLSearchParams(filters);
     try {
       const response = await fetch(
-        `http://localhost:5000/items/filter?${params}`
+        `/items/filter?${params}`
       );
       const data = await response.json();
       if (data.options && filters.article) {
@@ -103,7 +103,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
         const params = new URLSearchParams(filters);
         try {
           const response = await fetch(
-            `http://localhost:5000/items/filter?${params}`
+            `/items/filter?${params}`
           );
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -360,7 +360,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
 
   const handleQuotationIDGeneration = async () => {
     try {
-      const response = await fetch("http://127.0.0.1:5000/create_quotation", {
+      const response = await fetch("/create_quotation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });

@@ -56,7 +56,7 @@ const Home = () => {
   const handleQuotationIDGeneration = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("http://127.0.0.1:5000/create_quotation", {
+      const response = await fetch("/create_quotation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
