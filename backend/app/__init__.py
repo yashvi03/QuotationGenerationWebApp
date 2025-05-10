@@ -6,14 +6,13 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError
 import os
-from functools import wraps
 
 # Configure logging
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s %(levelname)s: %(message)s',
     handlers=[
-        logging.StreamHandler(),  # Ensure logs go to stdout for Heroku
+        logging.StreamHandler()  # Logs to stdout for Heroku
     ]
 )
 logger = logging.getLogger(__name__)
@@ -72,32 +71,29 @@ def create_app():
     CORS(app)
     logger.debug("CORS enabled")
 
-    # Middleware to log all requests
-    def log_request_response(f):
-        @wraps(f)
-        def decorated(*args, **kwargs):
-            # Log request details
-            logger.debug(f"Request: {request.method} {request.url}")
-            logger.debug(f"Headers: {dict(request.headers)}")
-            logger.debug(f"Query Params: {request.args.to_dict()}")
-            if request.is_json:
-                logger.debug(f"Body: {request.get_json(silent=True)}")
-            try:
-                response = f(*args, **kwargs)
-                # Log response status
-                if isinstance(response, tuple):
-                    status = response[1]
-                else:
-                    status = response.status_code
-                logger.debug(f"Response Status: {status}")
-                return response
-            except Exception as e:
-                logger.error(f"Error in {request.path}: {str(e)}", exc_info=True)
-                raise
-        return decorated
+    # Log all requests and responses
+    @app.before_request
+    def log_request():
+        logger.debug(f"BACKEND REQUEST: {request.method} {request.url}")
+        logger.debug(f"Headers: {dict(request.headers)}")
+        logger.debug(f"Query Params: {request.args.to_dict()}")
+        if request.is_json:
+            logger.debug(f"Body: {request.get_json(silent=True)}")
 
-    # Apply logging middleware to all routes
-    app.before_request(lambda: log_request_response(lambda: None)())
+    @app.after_request
+    def log_response(response):
+        logger.debug(f"BACKEND RESPONSE: Status {response.status_code}")
+        if response.is_json:
+            try:
+                logger.debug(f"Response Body: {response.get_json(silent=True)}")
+            except Exception as e:
+                logger.error(f"Failed to parse response JSON: {e}")
+        return response
+
+    @app.errorhandler(Exception)
+    def handle_error(error):
+        logger.error(f"BACKEND ERROR in {request.path}: {str(error)}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
 
     # Register blueprints
     logger.debug("Registering blueprints")
