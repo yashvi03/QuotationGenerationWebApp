@@ -197,7 +197,7 @@
     
       try {
         // Send the payload to the backend
-        const response = await fetch("/quotations/", {
+        const response = await fetch("https://puranmalsons-quotation-webapp-0b4c571a2cc2.herokuapp.com/api/quotations/", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
