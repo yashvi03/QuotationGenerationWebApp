@@ -1,13 +1,11 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: 'https://puranmalsons-quotation-webapp-0b4c571a2cc2.herokuapp.com/',
+  baseURL: "https://puranmalsons-quotation-webapp-0b4c571a2cc2.herokuapp.com",
   headers: {
     "Content-Type": "application/json",
   },
 });
-
-
 
 axiosInstance.interceptors.response.use(
   (response) => {
@@ -16,7 +14,7 @@ axiosInstance.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       showAlert("Unauthorized! Redirecting to login...");
-    //   window.location.href = "/";
+      //   window.location.href = "/";
     }
 
     return Promise.reject(error);
