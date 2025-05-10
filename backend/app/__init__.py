@@ -111,7 +111,7 @@ def create_app():
         app.register_blueprint(customer_bp, url_prefix="/")
         app.register_blueprint(pickMargin_bp, url_prefix="/")
         app.register_blueprint(card_bp, url_prefix="/")
-        app.register_blueprint(wip_quotation_bp, url_prefix="/")
+        app.register_blueprint(wip_quotation_bp, url_prefix="/api")
         app.register_blueprint(final_quotation_bp, url_prefix="/")
         app.register_blueprint(download_quotation_bp, url_prefix="/")
         app.register_blueprint(share_quotation_bp, url_prefix="/")
