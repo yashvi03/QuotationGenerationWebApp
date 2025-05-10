@@ -1,14 +1,21 @@
 import logging
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError
 import os
+from functools import wraps
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s %(levelname)s: %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Ensure logs go to stdout for Heroku
+    ]
+)
 logger = logging.getLogger(__name__)
 logger.debug("Starting Flask app initialization")
 
@@ -64,6 +71,33 @@ def create_app():
     # Enable CORS
     CORS(app)
     logger.debug("CORS enabled")
+
+    # Middleware to log all requests
+    def log_request_response(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            # Log request details
+            logger.debug(f"Request: {request.method} {request.url}")
+            logger.debug(f"Headers: {dict(request.headers)}")
+            logger.debug(f"Query Params: {request.args.to_dict()}")
+            if request.is_json:
+                logger.debug(f"Body: {request.get_json(silent=True)}")
+            try:
+                response = f(*args, **kwargs)
+                # Log response status
+                if isinstance(response, tuple):
+                    status = response[1]
+                else:
+                    status = response.status_code
+                logger.debug(f"Response Status: {status}")
+                return response
+            except Exception as e:
+                logger.error(f"Error in {request.path}: {str(e)}", exc_info=True)
+                raise
+        return decorated
+
+    # Apply logging middleware to all routes
+    app.before_request(lambda: log_request_response(lambda: None)())
 
     # Register blueprints
     logger.debug("Registering blueprints")
