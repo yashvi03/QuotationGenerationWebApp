@@ -56,7 +56,7 @@ const Home = () => {
   const handleQuotationIDGeneration = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("https://puranmalsons-quotation-webapp-0b4c571a2cc2.herokuapp.com/create_quotation", {
+      const response = await fetch("https://puranmalsons-quotation-webapp-0b4c571a2cc2.herokuapp.com/api/create_quotation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
