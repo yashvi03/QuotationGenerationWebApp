@@ -1,6 +1,6 @@
 import axiosInstance from "./axiosInstance";
 
-// export const createQuotation = () => axiosInstance.post('/create_quotation')
+export const createQuotation = () => axiosInstance.post('/create_quotation')
 export const getFilter = (data) => axiosInstance.get(`items/filter?${data}`);
 export const addCard = (data) => axiosInstance.post("/cards", data);
 export const updateCard = (card_id, data) =>
