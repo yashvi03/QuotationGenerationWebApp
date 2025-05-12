@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { addCard, addCardToQuotation, updateCard } from "../services/api";
+import { addCard, addCardToQuotation, createQuotation, updateCard } from "../services/api";
 
 const AddItems = ({ edit, isEditMode, onItemAdded }) => {
   // State for controlling the current step in the selection process
@@ -360,10 +360,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
 
   const handleQuotationIDGeneration = async () => {
     try {
-      const response = await fetch("https://puranmalsons-quotation-webapp-0b4c571a2cc2.herokuapp.com/api/create_quotation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await createQuotation();
       if (response.ok) {
         const result = await response.json();
         localStorage.setItem("quotationId", result.quotation_id);
