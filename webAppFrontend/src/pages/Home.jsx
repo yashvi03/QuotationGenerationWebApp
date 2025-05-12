@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { finalQuotationIds, wipQuotationIds } from "../services/api";
+import { createQuotation, finalQuotationIds, wipQuotationIds } from "../services/api";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -56,10 +56,7 @@ const Home = () => {
   const handleQuotationIDGeneration = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("https://puranmalsons-quotation-webapp-0b4c571a2cc2.herokuapp.com/api/create_quotation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await createQuotation();
       if (response.ok) {
         const result = await response.json();
         localStorage.setItem("quotationId", result.quotation_id);
