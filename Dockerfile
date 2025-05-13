@@ -30,15 +30,15 @@
     # Copy Nginx config
     COPY nginx/default.conf /etc/nginx/conf.d/default.conf
     
+    # Create start.sh script
+    RUN echo '#!/bin/bash' > /start.sh && \
+        echo 'gunicorn --chdir /backend run:app -b 127.0.0.1:5000 &' >> /start.sh && \
+        echo 'sed -i "s/listen 80/listen \$PORT/" /etc/nginx/conf.d/default.conf' >> /start.sh && \
+        echo 'nginx -g "daemon off;"' >> /start.sh && \
+        chmod +x /start.sh
+    
     # Expose the dynamic port (Heroku will use $PORT)
     EXPOSE $PORT
-    
-    # Create a start script to run Gunicorn and Nginx
-    RUN echo '#!/bin/bash\n\
-    gunicorn --chdir /backend run:app -b 127.0.0.1:5000 &\n\
-    sed -i "s/listen 80/listen \$PORT/" /etc/nginx/conf.d/default.conf\n\
-    nginx -g "daemon off;"' > /start.sh && \
-    chmod +x /start.sh
     
     # Run the start script
     CMD ["/start.sh"]
