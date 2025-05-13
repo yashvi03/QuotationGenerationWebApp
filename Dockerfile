@@ -28,12 +28,17 @@
     COPY --from=backend /app /backend
     
     # Copy Nginx config
-    COPY nginx/default.conf /etc/nginx/conf.d/default.conf
+    COPY nginx/default.template /etc/nginx/conf.d/default.template
     
     # Create start.sh script
+    # Create start.sh script
     RUN echo '#!/bin/bash' > /start.sh && \
+        echo 'export PORT="${PORT:-80}"' >> /start.sh && \
+        echo 'echo "Starting Gunicorn on port 5000..."' >> /start.sh && \
         echo 'gunicorn --chdir /backend run:app -b 127.0.0.1:5000 &' >> /start.sh && \
-        echo 'sed -i "s/listen 80/listen \$PORT/" /etc/nginx/conf.d/default.conf' >> /start.sh && \
+        echo 'echo "Configuring Nginx to listen on PORT=$PORT..."' >> /start.sh && \
+        echo 'envsubst "\$PORT" < /etc/nginx/conf.d/default.template > /etc/nginx/conf.d/default.conf' >> /start.sh && \
+        echo 'echo "Starting Nginx..."' >> /start.sh && \
         echo 'nginx -g "daemon off;"' >> /start.sh && \
         chmod +x /start.sh
     
