@@ -12,8 +12,8 @@
     
     # Install pip and required packages in the backend container
     RUN pip install --upgrade pip && \
-        pip install gunicorn && \
-        pip install -r requirements.txt
+        pip install -r /backend/requirements.txt && \
+        pip install gunicorn
     
     # ---- Final Image with Nginx ----
     FROM nginx:alpine
