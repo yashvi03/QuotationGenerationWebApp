@@ -2,3 +2,5 @@ build:
   docker:
     web: Dockerfile
 
+run:
+  web: gunicorn --chdir backend run:app -b 0.0.0.0:$PORT

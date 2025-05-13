@@ -13,21 +13,39 @@
         pip install gunicorn
     COPY backend .
     
-    # ---- Final Image with Nginx ----
-    FROM nginx:alpine
+    # ---- Final Image ----
+    FROM python:3.10-slim
+    
+    # Install Nginx
+    RUN apt-get update && \
+        apt-get install -y nginx && \
+        rm -rf /var/lib/apt/lists/*
     
     # Copy React dist output into Nginx's static folder
     COPY --from=frontend /app/dist /usr/share/nginx/html
     
-    # Copy backend code into Nginx container (backend container already has the Python environment)
+    # Copy backend code
     COPY --from=backend /app /backend
     
-    # Copy Nginx config into the container
+    # Copy Nginx config
     COPY nginx/default.conf /etc/nginx/conf.d/default.conf
     
-    # Expose the dynamic port (Heroku's PORT)
+    # Expose the dynamic port (Heroku will use $PORT)
     EXPOSE $PORT
     
-    # Start Flask app using Gunicorn from backend and Nginx
-    CMD gunicorn --chdir /backend run:app -b 127.0.0.1:5000 & nginx -g 'daemon off;'
+    # Create a script to start both Gunicorn and Nginx
+    COPY <<EOF /start.sh
+    #!/bin/bash
+    # Start Gunicorn on 127.0.0.1:5000
+    gunicorn --chdir /backend run:app -b 127.0.0.1:5000 &
+    # Update Nginx config to use Heroku's $PORT
+    sed -i "s/listen 80/listen \$PORT/" /etc/nginx/conf.d/default.conf
+    # Start Nginx in the foreground
+    nginx -g 'daemon off;'
+    EOF
     
+    # Make the script executable
+    RUN chmod +x /start.sh
+    
+    # Run the start script
+    CMD ["/start.sh"]
