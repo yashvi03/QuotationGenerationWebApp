@@ -2,7 +2,7 @@
     FROM node:18 AS frontend
     WORKDIR /app
     COPY webAppFrontend/ ./
-    RUN npm install && npm run build
+    RUN npm install && npm run build   # Ensure the dist folder is created
     
     # ---- Build Python Backend ----
     FROM python:3.10-slim AS backend
@@ -13,8 +13,8 @@
     
     # ---- Final Image with Nginx ----
     FROM nginx:alpine
-    # Copy React build output
-    COPY --from=frontend /app/build /usr/share/nginx/html
+    # Copy React dist output instead of build
+    COPY --from=frontend /app/dist /usr/share/nginx/html
     # Copy backend code
     COPY --from=backend /app /backend
     # Copy Nginx config
