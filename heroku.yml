@@ -1,3 +1,6 @@
 build:
   docker:
     web: Dockerfile
+
+run:
+  web: sh -c "gunicorn --chdir /backend run:app -b 0.0.0.0:5000 & nginx -g 'daemon off;'"
