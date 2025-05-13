@@ -7,7 +7,7 @@
     # ---- Build Python Backend ----
     FROM python:3.10-slim AS backend
     WORKDIR /app
-    COPY backend/requirements.txt .
+    COPY requirements.txt .
     RUN pip install --upgrade pip && \
         pip install -r requirements.txt && \
         pip install gunicorn
