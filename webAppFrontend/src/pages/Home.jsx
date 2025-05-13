@@ -56,7 +56,10 @@ const Home = () => {
   const handleQuotationIDGeneration = async () => {
     try {
       setIsLoading(true);
+      console.log('create quotation',await createQuotation());
+
       const response = await createQuotation();
+      console.log('create quotation',response);
       if (response.ok) {
         const result = await response.json();
         localStorage.setItem("quotationId", result.quotation_id);
