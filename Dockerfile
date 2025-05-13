@@ -21,7 +21,7 @@
     COPY nginx/default.conf /etc/nginx/conf.d/default.conf
     
     # Install Python and backend dependencies
-    RUN apk add --no-cache python3 py3-pip && \
+    RUN pip install --upgrade pip && \
         pip install -r /backend/requirements.txt
     
     # Expose port 80 (Nginx)
