@@ -7,9 +7,5 @@ export API_URL=$API_URL_CLEAN
 # Replace environment variables in the Nginx configuration
 envsubst '$PORT $API_URL' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
 
-# Print the config for debugging (optional)
-echo "Generated Nginx configuration:"
-cat /etc/nginx/conf.d/default.conf
-
 # Start Nginx
 exec nginx -g 'daemon off;'

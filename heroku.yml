@@ -9,4 +9,3 @@ run:
   api:
     command:
       - gunicorn --bind 0.0.0.0:$PORT -w 4 run:app
-    image: api
