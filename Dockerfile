@@ -22,8 +22,7 @@
     
     # Install Python and backend dependencies
     RUN apk add --no-cache python3 py3-pip && \
-        pip3 install gunicorn && \
-        pip3 install -r /backend/requirements.txt
+        pip install -r /backend/requirements.txt
     
     # Expose port 80 (Nginx)
     EXPOSE 80
