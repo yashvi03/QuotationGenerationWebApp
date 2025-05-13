@@ -9,20 +9,23 @@
     WORKDIR /app
     COPY backend/ /app/
     COPY backend/requirements.txt .
-    RUN pip install --no-cache-dir -r requirements.txt
+    
+    # Install pip and required packages (only in the backend container)
+    RUN pip install --upgrade pip && \
+        pip install gunicorn && \
+        pip install -r requirements.txt
     
     # ---- Final Image with Nginx ----
     FROM nginx:alpine
+    
     # Copy React dist output instead of build
     COPY --from=frontend /app/dist /usr/share/nginx/html
-    # Copy backend code
+    
+    # Copy backend code into Nginx container (backend container already has the Python environment)
     COPY --from=backend /app /backend
+    
     # Copy Nginx config
     COPY nginx/default.conf /etc/nginx/conf.d/default.conf
-    
-    # Install Python and backend dependencies
-    RUN pip install --upgrade pip && \
-        pip install -r /backend/requirements.txt
     
     # Expose port 80 (Nginx)
     EXPOSE 80
