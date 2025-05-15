@@ -16,9 +16,9 @@
     # ---- Final Image ----
     FROM python:3.10-slim
     
-    # Install Nginx
+    # Install Nginx and gettext-base (for envsubst)
     RUN apt-get update && \
-        apt-get install -y nginx && \
+        apt-get install -y nginx gettext-base && \
         rm -rf /var/lib/apt/lists/*
     
     # Copy React dist output into Nginx's static folder
@@ -26,14 +26,15 @@
     
     # Copy backend code
     COPY --from=backend /app /backend
+    COPY --from=backend /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+    COPY --from=backend /usr/local/bin/gunicorn /usr/local/bin/gunicorn
     
     # Copy Nginx config
     COPY nginx/default.template /etc/nginx/conf.d/default.template
     
-    # Create start.sh script
-    # Create start.sh script
+    # Create start.sh script with non-privileged port handling
     RUN echo '#!/bin/bash' > /start.sh && \
-        echo 'export PORT="${PORT:-80}"' >> /start.sh && \
+        echo 'export PORT="${PORT:-8080}"' >> /start.sh && \
         echo 'echo "Starting Gunicorn on port 5000..."' >> /start.sh && \
         echo 'gunicorn --chdir /backend run:app -b 127.0.0.1:5000 &' >> /start.sh && \
         echo 'echo "Configuring Nginx to listen on PORT=$PORT..."' >> /start.sh && \
@@ -41,6 +42,9 @@
         echo 'echo "Starting Nginx..."' >> /start.sh && \
         echo 'nginx -g "daemon off;"' >> /start.sh && \
         chmod +x /start.sh
+    
+    # Make sure we're not trying to use privileged ports by default
+    ENV PORT=8080
     
     # Expose the dynamic port (Heroku will use $PORT)
     EXPOSE $PORT

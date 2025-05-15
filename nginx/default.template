@@ -1,16 +1,16 @@
 server {
     listen $PORT;
-    server_name localhost;
-
-    # Serve React frontend
+    server_name _;
+    
+    # Disable the nginx user directive in this context
+    # as Heroku doesn't run with root privileges
+    
     location / {
         root /usr/share/nginx/html;
-        try_files $uri $uri/ /index.html;  # Support React Router
+        try_files $uri $uri/ /index.html;
     }
-
-    # Proxy API requests to Gunicorn with prefix stripping
-    location /api/ {
-        rewrite ^/api/(.*)$ /$1 break;  # Strip /api/ prefix
+    
+    location /api {
         proxy_pass http://127.0.0.1:5000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
