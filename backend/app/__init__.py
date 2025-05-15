@@ -107,14 +107,14 @@ def create_app():
         from app.controllers.DownloadPDF import download_quotation_bp
         from app.controllers.SharePdf import share_quotation_bp
 
-        app.register_blueprint(item_bp, url_prefix="/items")
-        app.register_blueprint(customer_bp, url_prefix="/")
-        app.register_blueprint(pickMargin_bp, url_prefix="/")
-        app.register_blueprint(card_bp, url_prefix="/")
+        app.register_blueprint(item_bp, url_prefix="/api/items")
+        app.register_blueprint(customer_bp, url_prefix="/api")
+        app.register_blueprint(pickMargin_bp, url_prefix="/api")
+        app.register_blueprint(card_bp, url_prefix="/api")
         app.register_blueprint(wip_quotation_bp, url_prefix="/api")
-        app.register_blueprint(final_quotation_bp, url_prefix="/")
-        app.register_blueprint(download_quotation_bp, url_prefix="/")
-        app.register_blueprint(share_quotation_bp, url_prefix="/")
+        app.register_blueprint(final_quotation_bp, url_prefix="/api")
+        app.register_blueprint(download_quotation_bp, url_prefix="/api")
+        app.register_blueprint(share_quotation_bp, url_prefix="/api")
         logger.debug("Blueprints registered successfully")
     except ImportError as e:
         logger.error(f"Failed to import blueprints: {e}")
