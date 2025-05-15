@@ -24,15 +24,15 @@
     # Copy React dist output into Nginx's static folder
     COPY --from=frontend /app/dist /usr/share/nginx/html
     
-    # Copy backend code
+    # Copy backend code and Python dependencies
     COPY --from=backend /app /backend
     COPY --from=backend /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
     COPY --from=backend /usr/local/bin/gunicorn /usr/local/bin/gunicorn
     
-    # Copy Nginx config
+    # Copy Nginx config template
     COPY nginx/default.template /etc/nginx/conf.d/default.template
     
-    # Create start.sh script with non-privileged port handling
+    # Create improved start.sh script
     RUN echo '#!/bin/bash' > /start.sh && \
         echo 'export PORT="${PORT:-8080}"' >> /start.sh && \
         echo 'echo "Starting Gunicorn on port 5000..."' >> /start.sh && \
@@ -43,10 +43,10 @@
         echo 'nginx -g "daemon off;"' >> /start.sh && \
         chmod +x /start.sh
     
-    # Make sure we're not trying to use privileged ports by default
+    # Set non-privileged default port (Heroku will override with its own $PORT)
     ENV PORT=8080
     
-    # Expose the dynamic port (Heroku will use $PORT)
+    # Expose the port
     EXPOSE $PORT
     
     # Run the start script
