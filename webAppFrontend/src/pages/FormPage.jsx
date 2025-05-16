@@ -43,7 +43,9 @@ const FormPage = () => {
         //     `get_mc_name/${quotationId}`
         //   );
         // }
-        const mcNamesResponse = await axiosInstance.get(`get_mc_name/${quotationId}`);
+        const mcNamesResponse = await axiosInstance.get(
+          `get_mc_name/${quotationId}`
+        );
         const requiredCategories = mcNamesResponse?.data?.mc_names || [];
 
         // Fetch quotation data
@@ -70,12 +72,16 @@ const FormPage = () => {
         );
 
         // Check if all required categories have non-empty margins
-        const allMarginsFilled = requiredCategories.every((cat) => {
-          const margin = marginsMap.get(cat.mc_name);
-          return (
-            margin != null && (typeof margin !== "string" || margin !== "")
-          );
-        });
+        let allMarginsFilled = false;
+
+        if (requiredCategories.length > 0) {
+          allMarginsFilled = requiredCategories.every((cat) => {
+            const margin = marginsMap.get(cat.mc_name);
+            return (
+              margin != null && (typeof margin !== "string" || margin !== "")
+            );
+          });
+        }
 
         setIsMarginCompleted(allMarginsFilled);
         setIsMarginLocked(allMarginsFilled);
@@ -167,15 +173,22 @@ const FormPage = () => {
   const handlePreview = useCallback(async () => {
     if (!quotationId.startsWith("WIP_")) {
       try {
-        const response = await axiosInstance.get(`/preview_final_quotation/${quotationId}`);
+        const response = await axiosInstance.get(
+          `/preview_final_quotation/${quotationId}`
+        );
         const payload = {
           quotation_id: quotationId,
           customer_id: response.data.customer.customer_id,
           card_ids: data.map((card) => card.card_id),
           margin_ids: response.data.margins.map((m) => m.margin_id),
         };
-        const saveResponse = await axiosInstance.post("/final_quotation", payload);
-        navigate("/preview", { state: { quotationId: saveResponse.data.quotation_id } });
+        const saveResponse = await axiosInstance.post(
+          "/final_quotation",
+          payload
+        );
+        navigate("/preview", {
+          state: { quotationId: saveResponse.data.quotation_id },
+        });
       } catch (error) {
         setError("Failed to save final quotation");
         console.error(error);
