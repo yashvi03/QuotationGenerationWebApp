@@ -17,8 +17,7 @@ http {
     keepalive_timeout 65;
     
     server {
-        listen 80; 
-        #\$PORT
+        listen \$PORT;
         server_name _;
         
         location / {

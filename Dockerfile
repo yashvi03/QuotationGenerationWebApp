@@ -91,8 +91,7 @@
     ENV PORT=8080
     
     # Expose the port
-    EXPOSE 8080
-    #$PORT
+    EXPOSE $PORT
     
     # Run the start script
     CMD ["/start.sh"]
