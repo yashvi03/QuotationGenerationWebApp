@@ -81,7 +81,7 @@ const Margin = ({ onSave }) => {  // Add onSave prop
         };
         await axiosInstance.post("/add_margin_to_quotation", quotationMarginData);
       }
-      alert("Margins saved successfully!");
+      // alert("Margins saved successfully!");
       onSave();  // Notify parent that margins are saved
     } catch (error) {
       console.error("Error submitting margin:", error);

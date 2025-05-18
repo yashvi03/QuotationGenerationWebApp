@@ -73,7 +73,7 @@ const FormPage = () => {
 
         // Check if all required categories have non-empty margins
         let allMarginsFilled = false;
-
+        console.log("required categories", requiredCategories);
         if (requiredCategories.length > 0) {
           allMarginsFilled = requiredCategories.every((cat) => {
             const margin = marginsMap.get(cat.mc_name);
@@ -138,7 +138,7 @@ const FormPage = () => {
       if (!allMarginsFilled) {
         setActiveAccordion("Margin"); // Open Margin section if incomplete
       } else {
-        setActiveAccordion(null);
+        setActiveAccordion('Customer');
       }
 
       setEditData(null);
@@ -151,7 +151,7 @@ const FormPage = () => {
   const handleMarginSaved = useCallback(() => {
     setIsMarginCompleted(true);
     setIsMarginLocked(true);
-    setActiveAccordion(null);
+    setActiveAccordion('Customer');
   }, []);
 
   const handleCustomerSaved = useCallback(() => {
@@ -248,7 +248,7 @@ const FormPage = () => {
             currentMargins.map((m) => [m.mc_name, m.margin])
           );
 
-          const allMarginsFilled = requiredCategories.every((cat) => {
+          const allMarginsFilled =requiredCategories.length > 0 && requiredCategories.every((cat) => {
             const margin = marginsMap.get(cat.mc_name);
             return (
               margin != null && (typeof margin !== "string" || margin !== "")

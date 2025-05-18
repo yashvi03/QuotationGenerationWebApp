@@ -26,7 +26,7 @@ const Card = ({ type, size, items, onEdit, onDelete }) => {
                 <span className="inline-flex items-center justify-center bg-gray-200 text-gray-800 w-6 h-6 rounded-full mr-2 text-xs">
                   {index + 1}
                 </span>
-                <span className="text-gray-800">{item.article} {item.cat1} {item.cat2} {item.cat3}</span>
+                <span className="text-gray-800">{item.article} {item.cat1} {item.cat2} {item.cat3} {item.quantity}</span>
               </li>
             ))}
           </ul>

@@ -216,7 +216,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
             cat1: "",
             cat2: "",
             cat3: "",
-            qty: 1,
+            qty: null,
             cat1Options: [],
             cat2Options: [],
             cat3Options: [],
