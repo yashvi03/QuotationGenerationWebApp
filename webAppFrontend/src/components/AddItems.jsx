@@ -1,5 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { addCard, addCardToQuotation, createQuotation, updateCard } from "../services/api";
+import {
+  addCard,
+  addCardToQuotation,
+  createQuotation,
+  updateCard,
+} from "../services/api";
 
 const AddItems = ({ edit, isEditMode, onItemAdded }) => {
   // State for controlling the current step in the selection process
@@ -30,6 +35,12 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
 
   // Ref to track pending API fetches and prevent duplicates
   const pendingFetches = useRef(new Set());
+
+  // Refs for each section for scrolling
+  const typeSectionRef = useRef(null);
+  const sizeSectionRef = useRef(null);
+  const articleSectionRef = useRef(null);
+  // const summarySectionRef = useRef(null);
 
   // Memoized function to fetch category options from the API
   const fetchOptions = useCallback(async (filters) => {
@@ -127,6 +138,57 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
     }
     fetchFilters();
   }, [filters, nextStep]);
+
+  // Auto-scroll based on changes in nextStep
+  useEffect(() => {
+    // Function to scroll to element with smooth behavior
+    const scrollToElement = (element) => {
+      if (element) {
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    };
+
+    // Small delay to ensure DOM is updated and scrolling works properly
+    const scrollTimeout = setTimeout(() => {
+      if (
+        nextStep === "size" &&
+        selectedOptions.type &&
+        sizeSectionRef.current
+      ) {
+        scrollToElement(sizeSectionRef.current);
+      } else if (
+        nextStep === "article" &&
+        selectedOptions.size &&
+        articleSectionRef.current
+      ) {
+        scrollToElement(articleSectionRef.current);
+      }
+    }, 300);
+
+    return () => clearTimeout(scrollTimeout);
+  }, [nextStep, selectedOptions.type, selectedOptions.size]);
+
+  // Auto-scroll to summary section when first article is fully selected
+  // useEffect(() => {
+  //   if (selectedOptions.article.length > 0) {
+  //     const article = selectedOptions.article[0];
+  //     const isComplete = !isArticleIncomplete(article);
+
+  //     if (isComplete && summarySectionRef.current) {
+  //       const scrollTimeout = setTimeout(() => {
+  //         summarySectionRef.current.scrollIntoView({
+  //           behavior: "smooth",
+  //           block: "start",
+  //         });
+  //       }, 300);
+
+  //       return () => clearTimeout(scrollTimeout);
+  //     }
+  //   }
+  // }, [selectedOptions.article]);
 
   // Fetch initial category options (cat1) for articles
   useEffect(() => {
@@ -314,6 +376,11 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
       setFilters({});
       setNextStep("type");
       setActiveArticle(null);
+
+      // Scroll to type section
+      if (typeSectionRef.current) {
+        typeSectionRef.current.scrollIntoView({ behavior: "smooth" });
+      }
     } else if (step === "size") {
       setSelectedOptions((prev) => ({
         type: prev.type,
@@ -323,6 +390,11 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
       setFilters((prev) => ({ type: prev.type }));
       setNextStep("size");
       setActiveArticle(null);
+
+      // Scroll to size section
+      if (sizeSectionRef.current) {
+        sizeSectionRef.current.scrollIntoView({ behavior: "smooth" });
+      }
     } else if (step === "article") {
       setSelectedOptions((prev) => ({
         type: prev.type,
@@ -332,6 +404,11 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
       setFilters((prev) => ({ type: prev.type, size: prev.size }));
       setNextStep("article");
       setActiveArticle(null);
+
+      // Scroll to article section
+      if (articleSectionRef.current) {
+        articleSectionRef.current.scrollIntoView({ behavior: "smooth" });
+      }
     }
   };
 
@@ -394,7 +471,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
       let response;
       if (isEditMode && edit?.card_id) {
         response = await updateCard(edit.card_id, payload);
-        alert("Card updated successfully");
+        // alert("Card updated successfully");
       } else {
         response = await addCard(payload);
         const quotationData = {
@@ -402,7 +479,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
           card_id: response.data.card.card_id,
         };
         await addCardToQuotation(quotationData);
-        alert("Card added successfully");
+        // alert("Card added successfully");
       }
 
       // Reset form state
@@ -426,7 +503,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
   return (
     <div className="p-8">
       {/* Type Selection */}
-      <div className="mb-8">
+      <div className="mb-8" ref={typeSectionRef}>
         <div className="flex justify-between mb-4 items-center">
           <h3 className="font-semibold text-lg">Select Material</h3>
           {selectedOptions.type && !selectedOptions.size && (
@@ -483,7 +560,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
       </div>
 
       {/* Size Selection */}
-      <div className="mb-8">
+      <div className="mb-8" ref={sizeSectionRef}>
         <div className="flex justify-between mb-4 items-center">
           <h3
             className={`font-semibold text-lg ${
@@ -527,7 +604,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
       </div>
 
       {/* Article Selection */}
-      <div className="mb-8">
+      <div className="mb-8" ref={articleSectionRef}>
         <div className="flex justify-between mb-4 items-center">
           <h3
             className={`font-semibold text-lg ${
@@ -725,7 +802,10 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
 
       {/* Summary Section */}
       {selectedOptions.article.length > 0 && (
-        <div className="mt-8 p-4 bg-gray-50 rounded-lg">
+        <div
+          className="mt-8 p-4 bg-gray-50 rounded-lg"
+          // ref={summarySectionRef}
+        >
           <h3 className="font-semibold text-lg mb-2">Selected Items</h3>
           <ul className="divide-y">
             {selectedOptions.article.map((item, index) => {
@@ -742,9 +822,6 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
                   <div className="font-medium">
                     {item.value} {categoryEntries.join(" ")} × {item.qty}
                   </div>
-                  {/* {categoryEntries.length > 0 && (
-                    <div className="text-sm text-gray-600"></div>
-                  )} */}
                 </li>
               );
             })}

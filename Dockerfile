@@ -92,6 +92,7 @@
     
     # Expose the port
     EXPOSE $PORT
+    #8080
     
     # Run the start script
     CMD ["/start.sh"]
