@@ -18,6 +18,14 @@ const Customer = ({ onCustomerSaved }) => {
   const location = useLocation();
   const quotationId = location.state?.quotationId;
 
+  // Helper function to strip +91 prefix from phone numbers
+  const stripPrefix = (number) => {
+    if (number && number.startsWith("+91")) {
+      return number.substring(3); // Remove +91 prefix
+    }
+    return number;
+  };
+
   useEffect(() => {
     if (!quotationId) {
       setError("Error: Quotation ID is missing.");
@@ -37,6 +45,9 @@ const Customer = ({ onCustomerSaved }) => {
           shipping_address: d.shipping_address,
           phone_number: d.phone_number,
           whatsapp_number: d.whatsapp_number,
+          // Store formatted numbers for display
+          formatted_phone: stripPrefix(d.phone_number),
+          formatted_whatsapp: stripPrefix(d.whatsapp_number)
         }));
 
         const previewResponse = await axiosInstance.get(
@@ -48,8 +59,8 @@ const Customer = ({ onCustomerSaved }) => {
           setName(customer.name || "");
           setBillingAddress(customer.billing_address || "");
           setShippingAddress(customer.shipping_address || "");
-          setPhoneNumber(customer.phone_number || "");
-          setWhatsappNumber(customer.whatsapp_number || "");
+          setPhoneNumber(stripPrefix(customer.phone_number) || "");
+          setWhatsappNumber(stripPrefix(customer.whatsapp_number) || "");
           setSameAsBilling(
             customer.billing_address === customer.shipping_address
           );
@@ -120,7 +131,7 @@ const Customer = ({ onCustomerSaved }) => {
         "/add_customer_to_quotation",
         quotationCustomerData
       );
-      alert("Customer information saved successfully!");
+      // alert("Customer information saved successfully!");
       onCustomerSaved(); // Notify parent only on success
     } catch (error) {
       console.error("Error submitting customer:", error);
@@ -139,8 +150,8 @@ const Customer = ({ onCustomerSaved }) => {
       setName(selectedCustomer.name || "");
       setBillingAddress(selectedCustomer.billing_address || "");
       setShippingAddress(selectedCustomer.shipping_address || "");
-      setPhoneNumber(selectedCustomer.phone_number || "");
-      setWhatsappNumber(selectedCustomer.whatsapp_number || "");
+      setPhoneNumber(stripPrefix(selectedCustomer.phone_number) || "");
+      setWhatsappNumber(stripPrefix(selectedCustomer.whatsapp_number) || "");
       setSameAsBilling(
         selectedCustomer.billing_address === selectedCustomer.shipping_address
       );
@@ -184,7 +195,7 @@ const Customer = ({ onCustomerSaved }) => {
               {customer.name} -{" "}
               {customer.shipping_address &&
                 customer.shipping_address.substring(0, 20)}
-              ... - {customer.phone_number}
+              ... - {stripPrefix(customer.phone_number)}
             </option>
           ))}
         </select>
@@ -308,7 +319,7 @@ const Customer = ({ onCustomerSaved }) => {
             sameAsPhone ? "bg-gray-100" : ""
           }`}
           type="tel"
-          placeholder="+91 WhatsApp Number"
+          placeholder="WhatsApp Number"
           value={whatsappNumber}
           onChange={handleWhatsappChange}
           disabled={sameAsPhone}

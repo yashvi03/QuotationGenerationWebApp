@@ -171,25 +171,6 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
     return () => clearTimeout(scrollTimeout);
   }, [nextStep, selectedOptions.type, selectedOptions.size]);
 
-  // Auto-scroll to summary section when first article is fully selected
-  // useEffect(() => {
-  //   if (selectedOptions.article.length > 0) {
-  //     const article = selectedOptions.article[0];
-  //     const isComplete = !isArticleIncomplete(article);
-
-  //     if (isComplete && summarySectionRef.current) {
-  //       const scrollTimeout = setTimeout(() => {
-  //         summarySectionRef.current.scrollIntoView({
-  //           behavior: "smooth",
-  //           block: "start",
-  //         });
-  //       }, 300);
-
-  //       return () => clearTimeout(scrollTimeout);
-  //     }
-  //   }
-  // }, [selectedOptions.article]);
-
   // Fetch initial category options (cat1) for articles
   useEffect(() => {
     selectedOptions.article.forEach((article) => {
@@ -248,30 +229,42 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
   // Handle selection of type, size, or article
   const handleSelection = (value) => {
     if (nextStep === "article") {
-      if (activeArticle) {
-        const currentArticle = getArticleData(activeArticle);
-        if (isArticleIncomplete(currentArticle)) {
-          alert(
-            "Please complete all fields for the current article before selecting another."
-          );
-          return;
-        }
-      }
-
+      // Modified to handle individual article deselection
       const existingArticleIndex = selectedOptions.article.findIndex(
         (item) => item.value === value
       );
-      let updatedArticles;
-
+      
+      // If article is already selected, remove it (deselect)
       if (existingArticleIndex >= 0) {
-        updatedArticles = selectedOptions.article.filter(
+        const updatedArticles = selectedOptions.article.filter(
           (item) => item.value !== value
         );
-        setActiveArticle(
-          updatedArticles.length > 0 ? updatedArticles[0].value : null
-        );
+        
+        // Update active article if needed
+        if (activeArticle === value) {
+          setActiveArticle(
+            updatedArticles.length > 0 ? updatedArticles[0].value : null
+          );
+        }
+        
+        setSelectedOptions((prev) => ({
+          ...prev,
+          article: updatedArticles,
+        }));
       } else {
-        updatedArticles = [
+        // Check if we can add a new article
+        if (activeArticle) {
+          const currentArticle = getArticleData(activeArticle);
+          if (isArticleIncomplete(currentArticle)) {
+            alert(
+              "Please complete all fields for the current article before selecting another."
+            );
+            return;
+          }
+        }
+        
+        // Add new article
+        const updatedArticles = [
           ...selectedOptions.article,
           {
             value,
@@ -285,13 +278,14 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
             cat1Fetched: false,
           },
         ];
+        
         setActiveArticle(value);
+        
+        setSelectedOptions((prev) => ({
+          ...prev,
+          article: updatedArticles,
+        }));
       }
-
-      setSelectedOptions((prev) => ({
-        ...prev,
-        article: updatedArticles,
-      }));
     } else {
       setFilters((prev) => ({
         ...prev,

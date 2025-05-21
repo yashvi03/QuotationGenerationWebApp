@@ -124,6 +124,7 @@ const Margin = ({ onSave }) => {  // Add onSave prop
                     name={`mc_name_${index}`}
                     id={`mc_name_${index}`}
                     placeholder="0"
+                    autoFocus
                     onChange={(e) => handleMarginChange(mc.mc_name, e.target.value)}
                     value={margins[mc.mc_name] || ""}
                     className="appearance-none border rounded w-full py-2 pl-3 pr-8 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"

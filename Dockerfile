@@ -91,7 +91,8 @@
     ENV PORT=8080
     
     # Expose the port
-    EXPOSE $PORT
+    EXPOSE 8080
+    #$PORT
     #8080
     
     # Run the start script

@@ -14,6 +14,7 @@ function App() {
 
         <Route path="/additems" element={<AddItem />} />
         <Route path="/preview" element={<Preview />} />
+        <Route path="/preview/:id" element={<Preview />} />
       </Routes>
     </Router>
   );

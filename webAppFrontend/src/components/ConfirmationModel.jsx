@@ -2,8 +2,8 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white p-6 rounded-md shadow-lg w-96">
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 ">
+      <div className="bg-white p-6 rounded-md shadow-lg w-96 m-6">
         <h2 className="text-lg font-bold">Confirm Quotation</h2>
         <p className="text-gray-600 my-4">
           Are you sure you want to confirm this quotation?
@@ -17,7 +17,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm }) => {
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+            className="px-4 py-2 bg-green-700 text-white rounded-md hover:bg-green-800 transition-colors"
           >
             Confirm
           </button>

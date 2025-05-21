@@ -1,65 +1,71 @@
-import { useState, useEffect } from "react";
+import {
+  useState,
+  // useEffect
+} from "react";
 import { useNavigate } from "react-router-dom";
-import { finalQuotationIds, wipQuotationIds } from "../services/api";
+// import { finalQuotationIds, wipQuotationIds } from "../services/api";
 
 const Home = () => {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [quotations, setQuotations] = useState([]);
+  // const [searchTerm, setSearchTerm] = useState("");
+  // const [quotations, setQuotations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    async function fetchQuotations() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        // Fetch WIP quotations
-        const wipResponse = await wipQuotationIds();
-        console.log("WIP Response:", wipResponse);
-        let wipArray = wipResponse.data.quotations || [];
-        if (!Array.isArray(wipArray)) {
-          console.error("wipArray is not an array:", wipArray);
-          wipArray = [];
-        }
-        const wipQuotations = wipArray.map((quotation) => ({
-          quotation_id: quotation.quotation_id,
-          name: quotation.name, // Use the name string directly from backend
-          status: "pending",
-        }));
+  // useEffect(() => {
+  //   async function fetchQuotations() {
+  //     setIsLoading(true);
+  //     setError(null);
+  //     try {
+  //       // Fetch WIP quotations
+  //       const wipResponse = await wipQuotationIds();
+  //       console.log("WIP Response:", wipResponse);
+  //       let wipArray = wipResponse.data.quotations || [];
+  //       if (!Array.isArray(wipArray)) {
+  //         console.error("wipArray is not an array:", wipArray);
+  //         wipArray = [];
+  //       }
+  //       const wipQuotations = wipArray.map((quotation) => ({
+  //         quotation_id: quotation.quotation_id,
+  //         name: quotation.name, // Use the name string directly from backend
+  //         status: "pending",
+  //       }));
 
-        // Fetch finalized quotations
-        const finalResponse = await finalQuotationIds();
-        let finalArray = finalResponse.data.quotations || [];
-        if (!Array.isArray(finalArray)) {
-          console.error("finalArray is not an array:", finalArray);
-          finalArray = [];
-        }
-        const finalQuotations = finalArray.map((quotation) => ({
-          quotation_id: quotation.quotation_id,
-          name: quotation.name, // Placeholder since finalQuotationIds doesn't provide name
-          status: "finalized",
-        }));
-        console.log(finalQuotations);
-        setQuotations([...wipQuotations, ...finalQuotations]);
-      } catch (error) {
-        console.error("Error fetching quotations:", error);
-        setError("Failed to load quotations. Please try again later.");
-        setQuotations([]);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchQuotations();
-  }, []);
+  //       // Fetch finalized quotations
+  //       const finalResponse = await finalQuotationIds();
+  //       let finalArray = finalResponse.data.quotations || [];
+  //       if (!Array.isArray(finalArray)) {
+  //         console.error("finalArray is not an array:", finalArray);
+  //         finalArray = [];
+  //       }
+  //       const finalQuotations = finalArray.map((quotation) => ({
+  //         quotation_id: quotation.quotation_id,
+  //         name: quotation.name, // Placeholder since finalQuotationIds doesn't provide name
+  //         status: "finalized",
+  //       }));
+  //       console.log(finalQuotations);
+  //       setQuotations([...wipQuotations, ...finalQuotations]);
+  //     } catch (error) {
+  //       console.error("Error fetching quotations:", error);
+  //       setError("Failed to load quotations. Please try again later.");
+  //       setQuotations([]);
+  //     } finally {
+  //       setIsLoading(false);
+  //     }
+  //   }
+  //   fetchQuotations();
+  // }, []);
 
   const handleQuotationIDGeneration = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("https://puranmalsons-quotation-webapp-0b4c571a2cc2.herokuapp.com/api/create_quotation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await fetch(
+        "https://puranmalsons-quotation-webapp-0b4c571a2cc2.herokuapp.com/api/create_quotation",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
       if (response.ok) {
         const result = await response.json();
         localStorage.setItem("quotationId", result.quotation_id);
@@ -75,19 +81,19 @@ const Home = () => {
     }
   };
 
-  const handleView = (quotation) => {
-    if (quotation.status === "pending") {
-      navigate("/home", { state: { quotationId: quotation.quotation_id } });
-    } else {
-      navigate("/preview", { state: { quotationId: quotation.quotation_id } });
-    }
-  };
+  // const handleView = (quotation) => {
+  //   if (quotation.status === "pending") {
+  //     navigate("/home", { state: { quotationId: quotation.quotation_id } });
+  //   } else {
+  //     navigate("/preview", { state: { quotationId: quotation.quotation_id } });
+  //   }
+  // };
 
-  const filteredQuotations = quotations.filter((q) => 
-    q.quotation_id.toLowerCase().includes(searchTerm.toLowerCase()) || // Search by quotation ID
-    q.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
+  // const filteredQuotations = quotations.filter(
+  //   (q) =>
+  //     q.quotation_id.toLowerCase().includes(searchTerm.toLowerCase()) || // Search by quotation ID
+  //     q.name.toLowerCase().includes(searchTerm.toLowerCase())
+  // );
 
   return (
     <div className="min-h-screen bg-white p-4">
@@ -95,12 +101,12 @@ const Home = () => {
         <button
           onClick={handleQuotationIDGeneration}
           className="w-full py-3 bg-orange-400 rounded-md mb-4 font-bold text-white"
-          disabled={isLoading}
+          // disabled={isLoading}
         >
           + New Quotation
         </button>
 
-        <p className="my-2 font-semibold">Existing Quotations</p>
+        {/* <p className="my-2 font-semibold">Existing Quotations</p>
 
         <input
           type="text"
@@ -149,9 +155,9 @@ const Home = () => {
                 <h3 className="text-md font-semibold mt-2">
                   {quotation.quotation_id}
                 </h3>
-                <p className="text-sm text-gray-600 mt-1">{quotation.name}</p>{" "}
-                {/* Display name */}
-                <div className="mt-2">
+                <p className="text-sm text-gray-600 mt-1">{quotation.name}</p>{" "} */}
+        {/* Display name */}
+        {/* <div className="mt-2">
                   <button
                     onClick={() => handleView(quotation)}
                     className="mt-3 py-1 px-3 bg-orange-400 text-white font-semibold rounded-2xl"
@@ -162,7 +168,7 @@ const Home = () => {
               </div>
             ))}
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );

@@ -265,7 +265,7 @@ const FormPage = () => {
           }
         } catch (error) {
           console.error("Failed to delete card:", error);
-          alert("Couldn’t delete the card. Please try again.");
+          alert("Couldn't delete the card. Please try again.");
         }
       };
 
@@ -432,9 +432,16 @@ const FormPage = () => {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onChangeClick();
+                if (canOpen) {
+                  onChangeClick();
+                }
               }}
-              className="px-3 py-1 text-sm font-medium text-orange-600 hover:text-orange-700"
+              className={`px-3 py-1 text-sm font-medium ${
+                canOpen
+                  ? "text-orange-600 hover:text-orange-700"
+                  : "text-gray-400 cursor-not-allowed"
+              }`}
+              disabled={!canOpen}
             >
               Change
             </button>
