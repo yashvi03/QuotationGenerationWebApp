@@ -85,7 +85,7 @@ const Preview = () => {
           customer: {
             customer_id: quotation.customer.customer_id,
             name: quotation.customer.name,
-            project_name: quotation.customer.project_name
+            project_name: quotation.customer.project_name,
           },
         };
 
@@ -148,9 +148,13 @@ const Preview = () => {
       try {
         let response;
         if (quotationId.startsWith("WIP_")) {
-          response = await axiosInstance.get(`/preview_quotation/${quotationId}`);
+          response = await axiosInstance.get(
+            `/preview_quotation/${quotationId}`
+          );
         } else {
-          response = await axiosInstance.get(`/preview_final_quotation/${quotationId}`);
+          response = await axiosInstance.get(
+            `/preview_final_quotation/${quotationId}`
+          );
         }
         if (!response.data) throw new Error("No data received");
         console.log("Quotation data:", response.data);
@@ -201,7 +205,9 @@ const Preview = () => {
 
   const getMarginForItem = (mcName) => {
     if (!quotation?.margins || !mcName) return 0;
-    const marginObj = quotation.margins.find((margin) => margin.mc_name === mcName);
+    const marginObj = quotation.margins.find(
+      (margin) => margin.mc_name === mcName
+    );
     return marginObj ? marginObj.margin : 0;
   };
 
@@ -236,22 +242,24 @@ const Preview = () => {
       // Create download link
       const link = document.createElement("a");
       link.href = pdfUrl;
-      link.setAttribute("download", `quotation_${quotationId.replace("WIP_", "")}.pdf`);
-      
+      link.setAttribute(
+        "download",
+        `quotation_${quotationId.replace("WIP_", "")}.pdf`
+      );
+
       // Add link to DOM, click it, then remove it
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       console.log("PDF download initiated");
-      
+
       // Simulate download completion feedback (browsers handle actual download)
       setTimeout(() => {
         setIsDownloading(false);
         // Optional: Show success message
         // You could add a toast notification here
       }, 2000); // 2 second delay to show feedback
-      
     } catch (err) {
       console.error("Download failed:", err);
       setIsDownloading(false);
@@ -272,12 +280,21 @@ const Preview = () => {
         customer_id: quotation.customer.customer_id,
       };
 
-      const response = await axiosInstance.post("/final_quotation", wipQuotation);
-      const confirmedQuotationId = response.data.quotation_id || finalQuotationId;
+      const response = await axiosInstance.post(
+        "/final_quotation",
+        wipQuotation
+      );
+      const confirmedQuotationId =
+        response.data.quotation_id || finalQuotationId;
 
       await axiosInstance.delete(`/delete_quotation/${quotationId}`);
-      const quotationResponse = await axiosInstance.get(`/preview_final_quotation/${confirmedQuotationId}`);
-      if (!quotationResponse.data.cards?.length || !quotationResponse.data.customer) {
+      const quotationResponse = await axiosInstance.get(
+        `/preview_final_quotation/${confirmedQuotationId}`
+      );
+      if (
+        !quotationResponse.data.cards?.length ||
+        !quotationResponse.data.customer
+      ) {
         throw new Error("Invalid confirmed quotation data");
       }
       setQuotation(quotationResponse.data);
@@ -308,128 +325,138 @@ const Preview = () => {
   }, [navigate, quotation]);
 
   // Updated WhatsApp sharing function
-  // Updated WhatsApp sharing function with better error handling and debugging
-const handleShare = useCallback(async () => {
-  if (!quotationId || !quotation || !pdfBlob) {
-    console.error("Cannot share: missing required data", {
-      hasQuotationId: !!quotationId,
-      hasQuotation: !!quotation,
-      hasPdfBlob: !!pdfBlob
-    });
-    alert("PDF not ready. Please try regenerating the PDF.");
-    return;
-  }
-
-  try {
-    setIsSharing(true);
-    console.log("Starting share process...");
-    
-    // Create FormData and append the PDF file
-    const formData = new FormData();
-    const file = new File([pdfBlob], `quotation_${quotationId.replace("WIP_", "")}.pdf`, {
-      type: "application/pdf",
-    });
-    formData.append("file", file);
-
-    console.log("PDF file details:", {
-      name: file.name,
-      size: file.size,
-      type: file.type
-    });
-
-    console.log("Uploading PDF to S3...");
-    
-    // Upload PDF to S3
-    const uploadResponse = await axiosInstance.post("/upload-quotation", formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 30000, // 30 second timeout
-    });
-
-    console.log("Upload response:", uploadResponse.data);
-    const fileName = uploadResponse.data.file_name;
-    
-    if (!fileName) {
-      throw new Error("No file name returned from upload");
+  const handleShare = useCallback(async () => {
+    if (!quotationId || !quotation || !pdfBlob) {
+      console.error("Cannot share: missing required data", {
+        hasQuotationId: !!quotationId,
+        hasQuotation: !!quotation,
+        hasPdfBlob: !!pdfBlob,
+      });
+      alert("PDF not ready. Please try generating the PDF first.");
+      return;
     }
 
-    console.log("PDF uploaded successfully:", fileName);
+    try {
+      setIsSharing(true);
+      console.log("Starting share process...");
 
-    // Prepare parameters for WhatsApp link generation
-    const customerPhone = quotation.customer.whatsapp_number || quotation.customer.phone_number;
-    const customerName = quotation.customer.name;
-    const cleanQuotationId = quotationId.replace("WIP_", "");
-    
-    console.log("Share parameters:", {
-      fileName,
-      customerPhone: customerPhone ? `***${customerPhone.slice(-4)}` : 'none',
-      customerName,
-      quotationId: cleanQuotationId
-    });
+      // Create FormData and append the PDF file
+      const formData = new FormData();
+      const file = new File(
+        [pdfBlob],
+        `quotation_${quotationId.replace("WIP_", "")}.pdf`,
+        {
+          type: "application/pdf",
+        }
+      );
+      formData.append("file", file);
 
-    if (!customerPhone) {
-      throw new Error("Customer phone number not found. Please add a phone number to the customer profile.");
+      console.log("PDF file details:", {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      });
+
+      console.log("Uploading PDF to S3...");
+
+      // Upload PDF to S3
+      const uploadResponse = await axiosInstance.post(
+        "/upload-quotation",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          timeout: 30000, // 30 second timeout
+        }
+      );
+
+      console.log("Upload response:", uploadResponse.data);
+      const fileName = uploadResponse.data.file_name;
+
+      if (!fileName) {
+        throw new Error("No file name returned from upload");
+      }
+
+      console.log("PDF uploaded successfully:", fileName);
+
+      // Prepare parameters for WhatsApp link generation
+      const customerPhone =
+        quotation.customer.whatsapp_number || quotation.customer.phone_number;
+      const customerName = quotation.customer.name || "";
+      const cleanQuotationId = quotationId.replace("WIP_", "");
+
+      console.log("Share parameters:", {
+        fileName,
+        customerPhone: customerPhone ? `***${customerPhone.slice(-4)}` : "none",
+        customerName,
+        quotationId: cleanQuotationId,
+      });
+
+      if (!customerPhone) {
+        throw new Error(
+          "Customer phone number not found. Please add a phone number to the customer profile."
+        );
+      }
+
+      // Get WhatsApp share link using /share-pdf endpoint
+      const shareResponse = await axiosInstance.get("/share-pdf", {
+        params: {
+          file_name: fileName,
+          phone_number: customerPhone,
+          customer_name: customerName,
+          quotation_id: cleanQuotationId,
+        },
+        timeout: 15000, // 15 second timeout
+      });
+
+      console.log("Share response:", shareResponse.data);
+
+      if (!shareResponse.data.whatsapp_link) {
+        throw new Error("No WhatsApp link generated");
+      }
+
+      const whatsappUrl = shareResponse.data.whatsapp_link;
+      console.log("WhatsApp URL generated successfully:", whatsappUrl);
+
+      // Open WhatsApp with the link
+      const newWindow = window.open(whatsappUrl, "_blank");
+
+      if (!newWindow) {
+        console.warn("Popup blocked, trying direct navigation");
+        window.location.href = whatsappUrl;
+      } else {
+        console.log("WhatsApp opened in new window");
+      }
+
+      // Show success message
+      alert(
+        "WhatsApp link generated successfully! The quotation has been shared."
+      );
+    } catch (error) {
+      console.error("Error sharing quotation:", error);
+
+      let errorMessage = "Failed to share the quotation. ";
+
+      if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
+        errorMessage +=
+          "The operation timed out. Please check your internet connection and try again.";
+      } else if (error.response) {
+        console.error("Server error response:", error.response.data);
+        errorMessage +=
+          error.response.data?.error ||
+          `Server error: ${error.response.status}`;
+      } else if (error.request) {
+        errorMessage += "Network error. Please check your internet connection.";
+      } else {
+        errorMessage += error.message;
+      }
+
+      alert(errorMessage);
+    } finally {
+      setIsSharing(false);
     }
-    
-    // Get WhatsApp share link
-    const shareResponse = await axiosInstance.get("/get-signed-url", {
-      params: { 
-        file_name: fileName,
-        phone_number: customerPhone,
-        customer_name: customerName,
-        quotation_id: cleanQuotationId
-      },
-      timeout: 15000, // 15 second timeout
-    });
-
-    console.log("Share response:", shareResponse.data);
-
-    if (!shareResponse.data.whatsapp_link) {
-      throw new Error("No WhatsApp link generated");
-    }
-
-    const whatsappUrl = shareResponse.data.whatsapp_link;
-    console.log("WhatsApp URL generated successfully");
-
-    // Open WhatsApp with the link
-    const newWindow = window.open(whatsappUrl, '_blank');
-    
-    if (!newWindow) {
-      // Fallback if popup is blocked
-      console.warn("Popup blocked, trying direct navigation");
-      window.location.href = whatsappUrl;
-    } else {
-      console.log("WhatsApp opened in new window");
-    }
-    
-    // Show success message
-    alert("WhatsApp link generated successfully! The quotation has been shared.");
-    
-  } catch (error) {
-    console.error("Error sharing quotation:", error);
-    
-    let errorMessage = "Failed to share the quotation. ";
-    
-    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      errorMessage += "The operation timed out. Please check your internet connection and try again.";
-    } else if (error.response) {
-      // Server responded with error
-      console.error("Server error response:", error.response.data);
-      errorMessage += error.response.data?.error || `Server error: ${error.response.status}`;
-    } else if (error.request) {
-      // Network error
-      errorMessage += "Network error. Please check your internet connection.";
-    } else {
-      // Other error
-      errorMessage += error.message;
-    }
-    
-    alert(errorMessage);
-  } finally {
-    setIsSharing(false);
-  }
-}, [quotationId, quotation, pdfBlob]);
+  }, [quotationId, quotation, pdfBlob]);
 
   const handleRegeneratePDF = () => {
     if (quotationId) {
@@ -513,7 +540,7 @@ const handleShare = useCallback(async () => {
               </button>
             </div>
           </div>
-          
+
           {/* Download Success/Status Notification */}
           {isDownloading && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
@@ -525,7 +552,7 @@ const handleShare = useCallback(async () => {
               </div>
             </div>
           )}
-          
+
           <div
             className="pdf-container border border-gray-300 rounded-lg overflow-hidden"
             style={{ minHeight: "500px", width: "100%" }}
@@ -560,7 +587,9 @@ const handleShare = useCallback(async () => {
               <div className="text-center py-10">
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-600 mx-auto"></div>
                 <p className="mt-2">
-                  {isGeneratingPdf ? "Generating PDF..." : "Preparing PDF viewer..."}
+                  {isGeneratingPdf
+                    ? "Generating PDF..."
+                    : "Preparing PDF viewer..."}
                 </p>
               </div>
             )}
@@ -603,7 +632,7 @@ const handleShare = useCallback(async () => {
                   <path d="M20.33 4.67a1.86 1.86 0 00-2.3-.2L9.55 9.2a4.21 4.21 0 00-1.3-.57A4.16 4.16 0 004 12.83a4.16 4.16 0 004.25 4.16 4.21 4.21 0 001.3-.57l8.48 4.73a1.86 1.86 0 002.3-.2 2.07 2.07 0 00.47-2.3L17.2 13.5l3.62-5.13a2.07 2.07 0 00-.49-2.3zM8.25 15.83A2.16 2.16 0 015.5 12.83a2.16 2.16 0 012.75-2.17c.66.15 1.2.55 1.55 1.08l1.82 2.58-1.82 2.58a2.2 2.2 0 01-1.55 1.08zm10.58 2.5a.47.47 0 01-.58.05L9.2 13.5l9.05-4.88a.47.47 0 01.58.05.67.67 0 01.15.58l-3.62 5.13 3.62 5.12a.67.67 0 01-.15.58z" />
                 </svg>
               )}
-              {isSharing ? 'Sharing...' : 'Share via WhatsApp'}
+              {isSharing ? "Sharing..." : "Share via WhatsApp"}
             </button>
           </div>
         </div>
@@ -660,7 +689,10 @@ const handleShare = useCallback(async () => {
                                 <div className="flex justify-between font-bold text-orange-600">
                                   <span>Total:</span>
                                   <span>
-                                    ₹{(item.final_price * item.quantity).toFixed(2)}
+                                    ₹
+                                    {(item.final_price * item.quantity).toFixed(
+                                      2
+                                    )}
                                   </span>
                                 </div>
                               </div>
