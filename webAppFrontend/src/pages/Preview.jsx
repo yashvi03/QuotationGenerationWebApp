@@ -17,7 +17,8 @@ const Preview = () => {
   const [pdfUrl, setPdfUrl] = useState(null);
   const [pdfError, setPdfError] = useState(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [isSharing, setIsSharing] = useState(false); // New state for sharing
+  const [isSharing, setIsSharing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false); // New state for download indication
   const location = useLocation();
   const { id } = useParams();
   const pdfGeneratedRef = useRef(false);
@@ -220,7 +221,8 @@ const Preview = () => {
     navigate("/");
   }, [navigate]);
 
-  const handleDownload = useCallback(() => {
+  // FIXED: Enhanced download function with user feedback
+  const handleDownload = useCallback(async () => {
     if (!pdfUrl || !pdfBlob) {
       console.error("Cannot download: PDF URL or blob not available");
       alert("PDF not ready. Please try regenerating the PDF.");
@@ -228,15 +230,31 @@ const Preview = () => {
     }
 
     try {
+      setIsDownloading(true);
+      console.log("Starting download...");
+
+      // Create download link
       const link = document.createElement("a");
       link.href = pdfUrl;
       link.setAttribute("download", `quotation_${quotationId.replace("WIP_", "")}.pdf`);
+      
+      // Add link to DOM, click it, then remove it
       document.body.appendChild(link);
       link.click();
-      link.remove();
+      document.body.removeChild(link);
+      
       console.log("PDF download initiated");
+      
+      // Simulate download completion feedback (browsers handle actual download)
+      setTimeout(() => {
+        setIsDownloading(false);
+        // Optional: Show success message
+        // You could add a toast notification here
+      }, 2000); // 2 second delay to show feedback
+      
     } catch (err) {
       console.error("Download failed:", err);
+      setIsDownloading(false);
       alert("Download failed. Please try again.");
     }
   }, [pdfUrl, pdfBlob, quotationId]);
@@ -321,11 +339,15 @@ const Preview = () => {
 
       // Get WhatsApp share link with customer's phone number
       const customerPhone = quotation.customer.whatsapp_number || quotation.customer.phone_number;
+      const customerName = quotation.customer.name;
+      const cleanQuotationId = quotationId.replace("WIP_", "");
       
       const shareResponse = await axiosInstance.get("/get-signed-url", {
         params: { 
           file_name: fileName,
-          phone_number: customerPhone // Pass customer's phone number
+          phone_number: customerPhone,
+          customer_name: customerName,
+          quotation_id: cleanQuotationId
         }
       });
 
@@ -392,28 +414,52 @@ const Preview = () => {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-gray-700">PDF Preview</h2>
             <div className="flex gap-2">
+              {/* FIXED: Enhanced download button with loading state */}
               <button
                 onClick={handleDownload}
-                className="px-3 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors inline-flex items-center justify-center text-sm"
+                disabled={isDownloading}
+                className="px-3 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors inline-flex items-center justify-center text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 mr-1"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                  />
-                </svg>
-                Download
+                {isDownloading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-1"></div>
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 mr-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
+                    </svg>
+                    Download
+                  </>
+                )}
               </button>
             </div>
           </div>
+          
+          {/* Download Success/Status Notification */}
+          {isDownloading && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-600 mr-2"></div>
+                <span className="text-blue-700 text-sm">
+                  Preparing download... Please wait.
+                </span>
+              </div>
+            </div>
+          )}
+          
           <div
             className="pdf-container border border-gray-300 rounded-lg overflow-hidden"
             style={{ minHeight: "500px", width: "100%" }}

@@ -92,7 +92,7 @@ def upload_file():
         print(f"❌ Error uploading file: {e}")
         return jsonify({"error": str(e)}), 500
 
-# SOLUTION 2: Friendly URLs (Updated get-signed-url route)
+# FIXED: Updated get-signed-url route with different URL pattern
 @share_quotation_bp.route("/get-signed-url", methods=["GET"])
 def get_presigned_url():
     try:
@@ -149,11 +149,12 @@ def get_presigned_url():
         except Exception as cleanup_error:
             print(f"⚠️ Cleanup error (non-critical): {cleanup_error}")
 
-        # Create friendly URL with download prefix to avoid React Router conflicts
+        # FIXED: Create URL that won't conflict with React Router
         try:
             # Use a fallback if request.url_root is not available
             base_url = getattr(request, 'url_root', 'http://localhost:5000/').rstrip('/')
-            friendly_url = f"{base_url}/download/quotation/{friendly_id}/{temp_token}"
+            # Changed URL pattern to avoid React Router conflicts
+            friendly_url = f"{base_url}/api/pdf/{temp_token}"
             print(f"🔗 Generated friendly URL: {friendly_url}")
         except Exception as url_error:
             print(f"❌ Error creating URL: {url_error}")
@@ -190,9 +191,9 @@ def get_presigned_url():
         print(f"❌ Full traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
-# Proxy route to serve files securely
-@share_quotation_bp.route("/download/<token>", methods=["GET"])
-def download_file(token):
+# FIXED: New route that won't conflict with React Router
+@share_quotation_bp.route("/api/pdf/<token>", methods=["GET"])
+def serve_pdf_by_token(token):
     try:
         # Clean up expired links first
         cleanup_expired_links()
@@ -225,56 +226,36 @@ def download_file(token):
         print(f"❌ Error serving file: {e}")
         return jsonify({"error": "Unable to serve file"}), 500
 
-# Alternative route (if you want to keep both options)
-@share_quotation_bp.route("/get-friendly-url", methods=["GET"])
-def get_friendly_url_alternative():
+# Legacy routes (keeping for backward compatibility)
+@share_quotation_bp.route("/download/<token>", methods=["GET"])
+def download_file(token):
     try:
-        file_name = request.args.get("file_name")
-        phone_number = request.args.get("phone_number")
-        customer_name = request.args.get("customer_name", "")
-        quotation_id = request.args.get("quotation_id", "")
-
-        if not file_name or not phone_number:
-            return jsonify({"error": "File name and phone number are required"}), 400
-
-        formatted_phone = format_phone_number(phone_number)
-        if not formatted_phone:
-            return jsonify({"error": "Valid phone number is required"}), 400
-
-        # Generate friendly token
-        timestamp = datetime.now().strftime('%Y%m%d')
-        friendly_id = quotation_id if quotation_id else f"Q{timestamp}"
-        temp_token = generate_temp_token()[:8]  # Shorter token
+        cleanup_expired_links()
         
-        expires_at = datetime.now() + timedelta(hours=24)
-        temp_links[temp_token] = {
-            'file_name': file_name,
-            'expires_at': expires_at,
-            'quotation_id': friendly_id
-        }
+        if token not in temp_links:
+            return jsonify({"error": "Invalid or expired download link"}), 404
 
-        base_url = request.url_root.rstrip('/')
-        friendly_url = f"{base_url}/quotation/{friendly_id}/{temp_token}"
+        file_info = temp_links[token]
+        file_name = file_info['file_name']
+        bucket_name = os.getenv('AWS_BUCKET_NAME')
 
-        # Create message with friendly URL
-        greeting = f"Hi {customer_name}! " if customer_name else "Hi! "
-        message = f"{greeting}Your quotation is ready! Click here to view: {friendly_url}"
-        
-        encoded_message = urllib.parse.quote(message)
-        whatsapp_link = f"https://api.whatsapp.com/send?phone={formatted_phone}&text={encoded_message}"
+        print(f"🔗 Serving file {file_name} via proxy")
 
-        return jsonify({
-            "friendly_url": friendly_url,
-            "whatsapp_link": whatsapp_link,
-            "formatted_phone": formatted_phone,
-            "expires_in": "24 hours"
-        })
+        presigned_url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket_name, "Key": file_name},
+            ExpiresIn=3600
+        )
+
+        temp_links[token]['accessed'] = True
+        temp_links[token]['accessed_at'] = datetime.now()
+
+        return redirect(presigned_url)
 
     except Exception as e:
-        print(f"❌ Error generating friendly URL: {e}")
-        return jsonify({"error": str(e)}), 500
+        print(f"❌ Error serving file: {e}")
+        return jsonify({"error": "Unable to serve file"}), 500
 
-# Friendly URL route (using download prefix to avoid React Router conflicts)
 @share_quotation_bp.route("/download/quotation/<quotation_id>/<token>", methods=["GET"])
 def view_quotation(quotation_id, token):
     try:
@@ -299,7 +280,7 @@ def view_quotation(quotation_id, token):
         print(f"❌ Error viewing quotation: {e}")
         return jsonify({"error": "Unable to view quotation"}), 500
 
-# SOLUTION 3: Custom message without URL exposure
+# Route for custom WhatsApp messages
 @share_quotation_bp.route("/get-whatsapp-link", methods=["GET"])
 def get_whatsapp_link():
     try:
@@ -355,7 +336,7 @@ def delete_file():
         print(f"❌ Error deleting file: {e}")
         return jsonify({"error": str(e)}), 500
 
-# Clean up expired links periodically (you might want to run this as a background task)
+# Clean up expired links periodically
 @share_quotation_bp.route("/cleanup-expired", methods=["POST"])
 def manual_cleanup():
     cleanup_expired_links()
