@@ -149,11 +149,11 @@ def get_presigned_url():
         except Exception as cleanup_error:
             print(f"⚠️ Cleanup error (non-critical): {cleanup_error}")
 
-        # Create friendly URL
+        # Create friendly URL with download prefix to avoid React Router conflicts
         try:
             # Use a fallback if request.url_root is not available
             base_url = getattr(request, 'url_root', 'http://localhost:5000/').rstrip('/')
-            friendly_url = f"{base_url}/quotation/{friendly_id}/{temp_token}"
+            friendly_url = f"{base_url}/download/quotation/{friendly_id}/{temp_token}"
             print(f"🔗 Generated friendly URL: {friendly_url}")
         except Exception as url_error:
             print(f"❌ Error creating URL: {url_error}")
@@ -274,8 +274,8 @@ def get_friendly_url_alternative():
         print(f"❌ Error generating friendly URL: {e}")
         return jsonify({"error": str(e)}), 500
 
-# Friendly URL route
-@share_quotation_bp.route("/quotation/<quotation_id>/<token>", methods=["GET"])
+# Friendly URL route (using download prefix to avoid React Router conflicts)
+@share_quotation_bp.route("/download/quotation/<quotation_id>/<token>", methods=["GET"])
 def view_quotation(quotation_id, token):
     try:
         cleanup_expired_links()
