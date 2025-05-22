@@ -17,6 +17,7 @@ const Preview = () => {
   const [pdfUrl, setPdfUrl] = useState(null);
   const [pdfError, setPdfError] = useState(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isSharing, setIsSharing] = useState(false); // New state for sharing
   const location = useLocation();
   const { id } = useParams();
   const pdfGeneratedRef = useRef(false);
@@ -288,6 +289,7 @@ const Preview = () => {
     localStorage.setItem("quotationId", response.data.quotation_id);
   }, [navigate, quotation]);
 
+  // Updated WhatsApp sharing function
   const handleShare = useCallback(async () => {
     if (!quotationId || !quotation || !pdfBlob) {
       console.error("Cannot share: missing required data");
@@ -296,24 +298,48 @@ const Preview = () => {
     }
 
     try {
+      setIsSharing(true);
+      
+      // Create FormData and append the PDF file
+      const formData = new FormData();
       const file = new File([pdfBlob], `quotation_${quotationId.replace("WIP_", "")}.pdf`, {
         type: "application/pdf",
       });
+      formData.append("file", file);
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: "Quotation PDF",
-          text: "Here is your quotation document.",
-          files: [file],
-        });
-        console.log("Share successful");
-      } else {
-        console.warn("File sharing not supported on this device");
-        alert("File sharing is not supported on this device. You can download the file instead.");
-      }
+      console.log("Uploading PDF to S3...");
+      
+      // Upload PDF to S3
+      const uploadResponse = await axiosInstance.post("/upload-quotation", formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const fileName = uploadResponse.data.file_name;
+      console.log("PDF uploaded successfully:", fileName);
+
+      // Get WhatsApp share link with customer's phone number
+      const customerPhone = quotation.customer.whatsapp_number || quotation.customer.phone_number;
+      
+      const shareResponse = await axiosInstance.get("/get-signed-url", {
+        params: { 
+          file_name: fileName,
+          phone_number: customerPhone // Pass customer's phone number
+        }
+      });
+
+      const whatsappUrl = shareResponse.data.whatsapp_link;
+      console.log("WhatsApp URL generated:", whatsappUrl);
+
+      // Open WhatsApp with the link
+      window.open(whatsappUrl, '_blank');
+      
     } catch (error) {
       console.error("Error sharing quotation:", error);
-      alert("Failed to share the quotation. You can try downloading instead.");
+      alert(`Failed to share the quotation: ${error.response?.data?.error || error.message}`);
+    } finally {
+      setIsSharing(false);
     }
   }, [quotationId, quotation, pdfBlob]);
 
@@ -338,8 +364,6 @@ const Preview = () => {
   if (error) {
     return <div className="p-4 sm:p-6 text-red-500">Error: {error}</div>;
   }
-
-  const finalQuotationId = quotationId.replace("WIP_", "");
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto bg-gray-100 min-h-screen">
@@ -452,17 +476,22 @@ const Preview = () => {
             </button>
             <button
               onClick={handleShare}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors inline-flex items-center justify-center"
+              disabled={isSharing}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-2"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M20.33 4.67a1.86 1.86 0 00-2.3-.2L9.55 9.2a4.21 4.21 0 00-1.3-.57A4.16 4.16 0 004 12.83a4.16 4.16 0 004.25 4.16 4.21 4.21 0 001.3-.57l8.48 4.73a1.86 1.86 0 002.3-.2 2.07 2.07 0 00.47-2.3L17.2 13.5l3.62-5.13a2.07 2.07 0 00-.49-2.3zM8.25 15.83A2.16 2.16 0 015.5 12.83a2.16 2.16 0 012.75-2.17c.66.15 1.2.55 1.55 1.08l1.82 2.58-1.82 2.58a2.2 2.2 0 01-1.55 1.08zm10.58 2.5a.47.47 0 01-.58.05L9.2 13.5l9.05-4.88a.47.47 0 01.58.05.67.67 0 01.15.58l-3.62 5.13 3.62 5.12a.67.67 0 01-.15.58z" />
-              </svg>
-              Share
+              {isSharing ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 mr-2"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M20.33 4.67a1.86 1.86 0 00-2.3-.2L9.55 9.2a4.21 4.21 0 00-1.3-.57A4.16 4.16 0 004 12.83a4.16 4.16 0 004.25 4.16 4.21 4.21 0 001.3-.57l8.48 4.73a1.86 1.86 0 002.3-.2 2.07 2.07 0 00.47-2.3L17.2 13.5l3.62-5.13a2.07 2.07 0 00-.49-2.3zM8.25 15.83A2.16 2.16 0 015.5 12.83a2.16 2.16 0 012.75-2.17c.66.15 1.2.55 1.55 1.08l1.82 2.58-1.82 2.58a2.2 2.2 0 01-1.55 1.08zm10.58 2.5a.47.47 0 01-.58.05L9.2 13.5l9.05-4.88a.47.47 0 01.58.05.67.67 0 01.15.58l-3.62 5.13 3.62 5.12a.67.67 0 01-.15.58z" />
+                </svg>
+              )}
+              {isSharing ? 'Sharing...' : 'Share via WhatsApp'}
             </button>
           </div>
         </div>
@@ -545,7 +574,7 @@ const Preview = () => {
       </div>
 
       {quotation?.cards?.length > 0 && (
-        <div className="bg-white p-4 sm:p-6 border-t border-gray-200 shadow-sm sticky bottom-0 z-10">
+        <div className="bg-white p-4 sm:p-6 border-t border-gray-200 shadow-sm mt-6">
           <div className="max-w-full mx-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-700">
