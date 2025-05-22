@@ -1,3 +1,27 @@
+from flask import Flask, request, jsonify, Blueprint
+import boto3
+import os
+import urllib.parse
+from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
+
+share_quotation_bp = Blueprint("share_quotation", __name__)  # Fixed typo in Blueprint name
+
+# Initialize S3 client
+try:
+    s3_client = boto3.client(
+        "s3",
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY'),
+        aws_secret_access_key=os.getenv('SHARE_SECRET_KEY'),
+        region_name=os.getenv('AWS_REGION')
+    )
+    print("✅ S3 client initialized successfully")
+except Exception as e:
+    print(f"❌ Error initializing S3 client: {e}")
+
+# Route to upload a PDF to S3
 @share_quotation_bp.route("/upload-quotation", methods=["POST"])
 def upload_file():
     try:
