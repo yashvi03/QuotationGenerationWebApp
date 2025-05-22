@@ -1,17 +1,15 @@
-from flask import Flask, request, jsonify, Blueprint, redirect
+from flask import Flask, request, jsonify, Blueprint, send_file, Response
 import boto3
 import os
 import urllib.parse
 import uuid
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+import io
 
 load_dotenv()
 
 share_quotation_bp = Blueprint("share_quotation", __name__)
-
-# Simple in-memory storage for tokens (use Redis/DB in production)
-temp_links = {}
 
 # Initialize S3 client
 try:
@@ -24,17 +22,6 @@ try:
     print("✅ S3 client initialized successfully")
 except Exception as e:
     print(f"❌ Error initializing S3 client: {e}")
-
-def cleanup_expired_links():
-    """Remove expired links"""
-    current_time = datetime.now()
-    expired_keys = [
-        key for key, data in temp_links.items() 
-        if data['expires_at'] < current_time
-    ]
-    for key in expired_keys:
-        del temp_links[key]
-    print(f"🧹 Cleaned up {len(expired_keys)} expired links")
 
 # Route to upload a PDF to S3
 @share_quotation_bp.route("/upload-quotation", methods=["POST"])
@@ -71,140 +58,199 @@ def upload_file():
         print(f"❌ Error uploading file: {e}")
         return jsonify({"error": str(e)}), 500
 
-# Route to generate user-friendly URL & WhatsApp link
-@share_quotation_bp.route("/get-signed-url", methods=["GET"])
-def get_presigned_url():
+# Route to directly serve PDF with custom message
+@share_quotation_bp.route("/share-pdf", methods=["GET"])
+def share_pdf_directly():
     try:
         # Get parameters
         file_name = request.args.get("file_name")
-        phone_number = request.args.get("phone_number", "9374808167")  # Default or from request
+        phone_number = request.args.get("phone_number", "9374808167")
         customer_name = request.args.get("customer_name", "")
         quotation_id = request.args.get("quotation_id", "")
+        custom_message = request.args.get("message", "")
 
         if not file_name:
             print("❌ No file name provided in request")
             return jsonify({"error": "File name is required"}), 400
 
-        print(f"🔗 Processing request for file: {file_name}")
+        print(f"📄 Processing direct PDF share for file: {file_name}")
         print(f"📱 Phone: {phone_number}")
         print(f"👤 Customer: {customer_name}")
         print(f"🆔 Quotation ID: {quotation_id}")
 
-        # Clean up expired links first
-        cleanup_expired_links()
+        bucket_name = os.getenv('AWS_BUCKET_NAME')
 
-        # Generate a short, friendly token
-        token = str(uuid.uuid4())[:8]  # Short 8-character token
-        
-        # Store the mapping with expiration
-        temp_links[token] = {
-            'file_name': file_name,
-            'expires_at': datetime.now() + timedelta(hours=24),  # 24 hours expiry
-            'created_at': datetime.now(),
-            'accessed': False
-        }
+        # Download PDF from S3
+        try:
+            print(f"📥 Downloading PDF from S3: {file_name}")
+            response = s3_client.get_object(Bucket=bucket_name, Key=file_name)
+            pdf_content = response['Body'].read()
+            print(f"✅ PDF downloaded successfully, size: {len(pdf_content)} bytes")
+        except Exception as e:
+            print(f"❌ Error downloading PDF from S3: {e}")
+            return jsonify({"error": f"File not found: {str(e)}"}), 404
 
-        # Create user-friendly URL
-        base_url = request.url_root.rstrip('/')
-        friendly_url = f"{base_url}/pdf/{token}"
+        # Create custom message
+        if custom_message:
+            message = custom_message
+        else:
+            greeting = f"Hi {customer_name}! " if customer_name else "Hi! "
+            quotation_text = f"Quotation #{quotation_id}" if quotation_id else "your quotation"
+            message = f"{greeting}Please find {quotation_text} attached from our company."
 
-        print(f"🔗 Generated friendly URL: {friendly_url}")
-
-        # Create WhatsApp message
-        greeting = f"Hi {customer_name}! " if customer_name else "Hi! "
-        quotation_text = f"Quotation #{quotation_id}" if quotation_id else "your quotation"
-        message = f"{greeting}Here is {quotation_text} from our company. Click here to view: {friendly_url}"
-        
         # Format phone number (ensure it has country code)
         if len(phone_number) == 10:
             phone_number = "91" + phone_number  # Add India country code
-        
+
+        # Create WhatsApp share URL with message (without PDF link)
         encoded_message = urllib.parse.quote(message)
         whatsapp_link = f"https://api.whatsapp.com/send?phone={phone_number}&text={encoded_message}"
 
-        print(f"📲 WhatsApp link generated successfully")
-        print(f"💾 Token {token} stored, active links: {len(temp_links)}")
+        print(f"📲 WhatsApp message link generated")
 
         return jsonify({
-            "url": friendly_url,
+            "message": "PDF ready for direct sharing",
+            "whatsapp_message": message,
             "whatsapp_link": whatsapp_link,
-            "token": token,
-            "expires_in": "24 hours"
+            "pdf_download_url": f"{request.url_root.rstrip('/')}/download-pdf?file_name={urllib.parse.quote(file_name)}",
+            "file_size": len(pdf_content),
+            "timestamp": datetime.now().isoformat()
         })
 
     except Exception as e:
-        print(f"❌ Error generating URLs: {e}")
+        print(f"❌ Error in direct PDF sharing: {e}")
         import traceback
         print(f"❌ Full error: {traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
-# User-friendly PDF serving route
-@share_quotation_bp.route("/pdf/<token>", methods=["GET"])
-def serve_pdf(token):
+# Route to download PDF directly
+@share_quotation_bp.route("/download-pdf", methods=["GET"])
+def download_pdf():
     try:
-        print(f"🔗 Serving PDF for token: {token}")
-        
-        # Clean up expired links
-        cleanup_expired_links()
-        
-        # Check if token exists
-        if token not in temp_links:
-            print(f"❌ Invalid token: {token}")
-            return jsonify({"error": "Invalid or expired link"}), 404
+        file_name = request.args.get("file_name")
+        if not file_name:
+            return jsonify({"error": "File name is required"}), 400
 
-        # Get file info
-        file_info = temp_links[token]
-        file_name = file_info['file_name']
         bucket_name = os.getenv('AWS_BUCKET_NAME')
+        
+        print(f"📥 Downloading PDF: {file_name}")
 
-        print(f"📄 Generating presigned URL for: {file_name}")
+        # Get PDF from S3
+        try:
+            response = s3_client.get_object(Bucket=bucket_name, Key=file_name)
+            pdf_content = response['Body'].read()
+        except Exception as e:
+            print(f"❌ Error downloading from S3: {e}")
+            return jsonify({"error": "File not found"}), 404
 
-        # Generate presigned URL (same as your working code)
-        presigned_url = s3_client.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": bucket_name, "Key": file_name},
-            ExpiresIn=3600,  # 1 hour expiry
+        # Create a file-like object from the PDF content
+        pdf_buffer = io.BytesIO(pdf_content)
+        pdf_buffer.seek(0)
+
+        # Extract just the filename for download
+        display_name = file_name.split('/')[-1] if '/' in file_name else file_name
+        
+        print(f"✅ Serving PDF download: {display_name}")
+
+        return send_file(
+            pdf_buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=display_name
         )
 
-        # Mark as accessed
-        temp_links[token]['accessed'] = True
-        temp_links[token]['accessed_at'] = datetime.now()
-
-        print(f"✅ Redirecting to S3 URL")
-        
-        # Redirect to the actual S3 URL
-        return redirect(presigned_url)
-
     except Exception as e:
-        print(f"❌ Error serving PDF: {e}")
-        import traceback
-        print(f"❌ Full error: {traceback.format_exc()}")
-        return jsonify({"error": f"Unable to serve file: {str(e)}"}), 500
+        print(f"❌ Error serving PDF download: {e}")
+        return jsonify({"error": str(e)}), 500
 
-# Alternative route that matches your original pattern
-@share_quotation_bp.route("/api/pdf/<token>", methods=["GET"])
-def serve_pdf_api(token):
-    """Alternative endpoint that matches your frontend expectation"""
-    return serve_pdf(token)
-
-# Debug route to check stored links
-@share_quotation_bp.route("/debug/links", methods=["GET"])
-def debug_links():
+# Route to get PDF content as base64 (for direct integration with messaging APIs)
+@share_quotation_bp.route("/get-pdf-base64", methods=["GET"])
+def get_pdf_base64():
     try:
-        cleanup_expired_links()
+        file_name = request.args.get("file_name")
+        if not file_name:
+            return jsonify({"error": "File name is required"}), 400
+
+        bucket_name = os.getenv('AWS_BUCKET_NAME')
+        
+        print(f"📄 Getting PDF as base64: {file_name}")
+
+        # Get PDF from S3
+        try:
+            response = s3_client.get_object(Bucket=bucket_name, Key=file_name)
+            pdf_content = response['Body'].read()
+        except Exception as e:
+            print(f"❌ Error downloading from S3: {e}")
+            return jsonify({"error": "File not found"}), 404
+
+        # Convert to base64
+        import base64
+        pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
+        
+        print(f"✅ PDF converted to base64, size: {len(pdf_base64)} characters")
+
         return jsonify({
-            "active_links": len(temp_links),
-            "links": {
-                token: {
-                    "file_name": info["file_name"],
-                    "expires_at": info["expires_at"].isoformat(),
-                    "accessed": info.get("accessed", False),
-                    "created_at": info["created_at"].isoformat()
-                }
-                for token, info in temp_links.items()
-            }
+            "file_name": file_name,
+            "pdf_base64": pdf_base64,
+            "content_type": "application/pdf",
+            "file_size": len(pdf_content),
+            "base64_size": len(pdf_base64)
         })
+
     except Exception as e:
+        print(f"❌ Error converting PDF to base64: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# Route to create a complete message package (message + PDF)
+@share_quotation_bp.route("/create-message-package", methods=["POST"])
+def create_message_package():
+    try:
+        data = request.get_json()
+        
+        file_name = data.get("file_name")
+        phone_number = data.get("phone_number", "9374808167")
+        customer_name = data.get("customer_name", "")
+        quotation_id = data.get("quotation_id", "")
+        custom_message = data.get("message", "")
+
+        if not file_name:
+            return jsonify({"error": "File name is required"}), 400
+
+        bucket_name = os.getenv('AWS_BUCKET_NAME')
+
+        # Download PDF from S3
+        try:
+            response = s3_client.get_object(Bucket=bucket_name, Key=file_name)
+            pdf_content = response['Body'].read()
+        except Exception as e:
+            return jsonify({"error": f"File not found: {str(e)}"}), 404
+
+        # Create message
+        if custom_message:
+            message = custom_message
+        else:
+            greeting = f"Hi {customer_name}! " if customer_name else "Hi! "
+            quotation_text = f"Quotation #{quotation_id}" if quotation_id else "your quotation"
+            message = f"{greeting}Please find {quotation_text} attached."
+
+        # Convert PDF to base64 for easy transmission
+        import base64
+        pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
+
+        return jsonify({
+            "message": message,
+            "phone_number": phone_number,
+            "pdf_data": {
+                "filename": file_name.split('/')[-1],
+                "content": pdf_base64,
+                "content_type": "application/pdf",
+                "size": len(pdf_content)
+            },
+            "package_created_at": datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        print(f"❌ Error creating message package: {e}")
         return jsonify({"error": str(e)}), 500
 
 # Health check
@@ -218,7 +264,6 @@ def health_check():
         return jsonify({
             "status": "healthy",
             "s3_connection": "ok",
-            "active_links": len(temp_links),
             "timestamp": datetime.now().isoformat()
         })
     except Exception as e:
@@ -227,3 +272,33 @@ def health_check():
             "error": str(e),
             "timestamp": datetime.now().isoformat()
         }), 500
+
+# Debug route to list available files
+@share_quotation_bp.route("/debug/files", methods=["GET"])
+def debug_files():
+    try:
+        bucket_name = os.getenv('AWS_BUCKET_NAME')
+        
+        # List files in the quotations folder
+        response = s3_client.list_objects_v2(
+            Bucket=bucket_name,
+            Prefix='quotations/',
+            MaxKeys=50
+        )
+        
+        files = []
+        if 'Contents' in response:
+            for obj in response['Contents']:
+                files.append({
+                    "key": obj['Key'],
+                    "size": obj['Size'],
+                    "last_modified": obj['LastModified'].isoformat()
+                })
+        
+        return jsonify({
+            "bucket": bucket_name,
+            "total_files": len(files),
+            "files": files
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
