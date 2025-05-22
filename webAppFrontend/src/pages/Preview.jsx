@@ -325,138 +325,111 @@ const Preview = () => {
   }, [navigate, quotation]);
 
   // Updated WhatsApp sharing function
-  const handleShare = useCallback(async () => {
-    if (!quotationId || !quotation || !pdfBlob) {
-      console.error("Cannot share: missing required data", {
-        hasQuotationId: !!quotationId,
-        hasQuotation: !!quotation,
-        hasPdfBlob: !!pdfBlob,
-      });
-      alert("PDF not ready. Please try generating the PDF first.");
-      return;
+  
+const handleShare = useCallback(async () => {
+  if (!quotationId || !quotation || !pdfBlob) {
+    console.error("Cannot share: missing required data", {
+      hasQuotationId: !!quotationId,
+      hasQuotation: !!quotation,
+      hasPdfBlob: !!pdfBlob,
+    });
+    alert("PDF not ready. Please try generating the PDF first.");
+    return;
+  }
+
+  try {
+    setIsSharing(true);
+    console.log("Starting share process...");
+
+    // Get customer phone number
+    const customerPhone =
+      quotation.customer.whatsapp_number || quotation.customer.phone_number;
+    if (!customerPhone) {
+      throw new Error(
+        "Customer phone number not found. Please add a phone number to the customer profile."
+      );
     }
 
-    try {
-      setIsSharing(true);
-      console.log("Starting share process...");
+    // Basic phone number validation
+    const cleanPhone = customerPhone.replace(/\D/g, ""); // Remove non-digits
+    if (cleanPhone.length < 10) {
+      throw new Error("Invalid phone number. Must be at least 10 digits.");
+    }
 
-      // Create FormData and append the PDF file
-      const formData = new FormData();
-      const file = new File(
-        [pdfBlob],
-        `quotation_${quotationId.replace("WIP_", "")}.pdf`,
-        {
-          type: "application/pdf",
-        }
-      );
-      formData.append("file", file);
+    // Prepare FormData with PDF and phone number
+    const formData = new FormData();
+    const file = new File(
+      [pdfBlob],
+      `quotation_${quotationId.replace("WIP_", "")}.pdf`,
+      { type: "application/pdf" }
+    );
+    formData.append("file", file);
+    formData.append("phone_number", cleanPhone);
 
-      console.log("PDF file details:", {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-      });
+    console.log("Uploading PDF to S3 with phone number:", {
+      fileName: file.name,
+      fileSize: file.size,
+      phoneNumber: cleanPhone ? `***${cleanPhone.slice(-4)}` : "none",
+    });
 
-      console.log("Uploading PDF to S3...");
-
-      // Upload PDF to S3
-      const uploadResponse = await axiosInstance.post(
-        "/upload-quotation",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          timeout: 30000, // 30 second timeout
-        }
-      );
-
-      console.log("Upload response:", uploadResponse.data);
-      const fileName = uploadResponse.data.file_name;
-
-      if (!fileName) {
-        throw new Error("No file name returned from upload");
-      }
-
-      console.log("PDF uploaded successfully:", fileName);
-
-      // Prepare parameters for WhatsApp link generation
-      const customerPhone =
-        quotation.customer.whatsapp_number || quotation.customer.phone_number;
-      const customerName = quotation.customer.name || "";
-      const cleanQuotationId = quotationId.replace("WIP_", "");
-
-      console.log("Share parameters:", {
-        fileName,
-        customerPhone: customerPhone ? `***${customerPhone.slice(-4)}` : "none",
-        customerName,
-        quotationId: cleanQuotationId,
-      });
-
-      if (!customerPhone) {
-        throw new Error(
-          "Customer phone number not found. Please add a phone number to the customer profile."
-        );
-      }
-
-      // Get WhatsApp share link using /share-pdf endpoint
-      const shareResponse = await axiosInstance.get("/share-pdf", {
-        params: {
-          file_name: fileName,
-          phone_number: customerPhone,
-          customer_name: customerName,
-          quotation_id: cleanQuotationId,
+    // Send PDF and phone number to backend
+    const uploadResponse = await axiosInstance.post(
+      "/upload-quotation",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
         },
-        timeout: 15000, // 15 second timeout
-      });
-
-      console.log("Share response:", shareResponse.data);
-
-      if (!shareResponse.data.whatsapp_link) {
-        throw new Error("No WhatsApp link generated");
+        timeout: 30000, // 30 second timeout
       }
+    );
 
-      const whatsappUrl = shareResponse.data.whatsapp_link;
-      console.log("WhatsApp URL generated successfully:", whatsappUrl);
+    console.log("Upload response:", uploadResponse.data);
 
-      // Open WhatsApp with the link
-      const newWindow = window.open(whatsappUrl, "_blank");
-
-      if (!newWindow) {
-        console.warn("Popup blocked, trying direct navigation");
-        window.location.href = whatsappUrl;
-      } else {
-        console.log("WhatsApp opened in new window");
-      }
-
-      // Show success message
-      alert(
-        "WhatsApp link generated successfully! The quotation has been shared."
-      );
-    } catch (error) {
-      console.error("Error sharing quotation:", error);
-
-      let errorMessage = "Failed to share the quotation. ";
-
-      if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
-        errorMessage +=
-          "The operation timed out. Please check your internet connection and try again.";
-      } else if (error.response) {
-        console.error("Server error response:", error.response.data);
-        errorMessage +=
-          error.response.data?.error ||
-          `Server error: ${error.response.status}`;
-      } else if (error.request) {
-        errorMessage += "Network error. Please check your internet connection.";
-      } else {
-        errorMessage += error.message;
-      }
-
-      alert(errorMessage);
-    } finally {
-      setIsSharing(false);
+    // Verify response
+    if (uploadResponse.data.message !== "File uploaded successfully!") {
+      throw new Error(uploadResponse.data.error || "Failed to upload PDF.");
     }
-  }, [quotationId, quotation, pdfBlob]);
+
+    const whatsappUrl = uploadResponse.data.whatsapp_link;
+    if (!whatsappUrl) {
+      throw new Error("No WhatsApp link generated.");
+    }
+
+    console.log("WhatsApp URL generated:", whatsappUrl);
+
+    // Open WhatsApp link
+    const newWindow = window.open(whatsappUrl, "_blank");
+    if (!newWindow) {
+      console.warn("Popup blocked, trying direct navigation");
+      window.location.href = whatsappUrl;
+    } else {
+      console.log("WhatsApp opened in new window");
+    }
+
+    // Show success message
+    alert("Quotation shared successfully via WhatsApp!");
+  } catch (error) {
+    console.error("Error sharing quotation:", error);
+    let errorMessage = "Failed to share the quotation. ";
+    if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
+      errorMessage += "The operation timed out. Please check your internet connection.";
+    } else if (error.message.includes("No file uploaded")) {
+      errorMessage += "No PDF file was uploaded. Please regenerate the PDF.";
+    } else if (error.message.includes("Phone number is required")) {
+      errorMessage += "Please provide a valid customer phone number.";
+    } else if (error.message.includes("Invalid phone number")) {
+      errorMessage += "The phone number is invalid. Please check and try again.";
+    } else if (error.response) {
+      errorMessage += error.response.data?.error || `Server error: ${error.response.status}`;
+    } else {
+      errorMessage += error.message;
+    }
+    alert(errorMessage);
+  } finally {
+    setIsSharing(false);
+  }
+}, [quotationId, quotation, pdfBlob]);
 
   const handleRegeneratePDF = () => {
     if (quotationId) {
