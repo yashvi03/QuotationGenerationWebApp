@@ -308,62 +308,128 @@ const Preview = () => {
   }, [navigate, quotation]);
 
   // Updated WhatsApp sharing function
-  const handleShare = useCallback(async () => {
-    if (!quotationId || !quotation || !pdfBlob) {
-      console.error("Cannot share: missing required data");
-      alert("PDF not ready. Please try regenerating the PDF.");
-      return;
+  // Updated WhatsApp sharing function with better error handling and debugging
+const handleShare = useCallback(async () => {
+  if (!quotationId || !quotation || !pdfBlob) {
+    console.error("Cannot share: missing required data", {
+      hasQuotationId: !!quotationId,
+      hasQuotation: !!quotation,
+      hasPdfBlob: !!pdfBlob
+    });
+    alert("PDF not ready. Please try regenerating the PDF.");
+    return;
+  }
+
+  try {
+    setIsSharing(true);
+    console.log("Starting share process...");
+    
+    // Create FormData and append the PDF file
+    const formData = new FormData();
+    const file = new File([pdfBlob], `quotation_${quotationId.replace("WIP_", "")}.pdf`, {
+      type: "application/pdf",
+    });
+    formData.append("file", file);
+
+    console.log("PDF file details:", {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    });
+
+    console.log("Uploading PDF to S3...");
+    
+    // Upload PDF to S3
+    const uploadResponse = await axiosInstance.post("/upload-quotation", formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 30000, // 30 second timeout
+    });
+
+    console.log("Upload response:", uploadResponse.data);
+    const fileName = uploadResponse.data.file_name;
+    
+    if (!fileName) {
+      throw new Error("No file name returned from upload");
     }
 
-    try {
-      setIsSharing(true);
-      
-      // Create FormData and append the PDF file
-      const formData = new FormData();
-      const file = new File([pdfBlob], `quotation_${quotationId.replace("WIP_", "")}.pdf`, {
-        type: "application/pdf",
-      });
-      formData.append("file", file);
+    console.log("PDF uploaded successfully:", fileName);
 
-      console.log("Uploading PDF to S3...");
-      
-      // Upload PDF to S3
-      const uploadResponse = await axiosInstance.post("/upload-quotation", formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+    // Prepare parameters for WhatsApp link generation
+    const customerPhone = quotation.customer.whatsapp_number || quotation.customer.phone_number;
+    const customerName = quotation.customer.name;
+    const cleanQuotationId = quotationId.replace("WIP_", "");
+    
+    console.log("Share parameters:", {
+      fileName,
+      customerPhone: customerPhone ? `***${customerPhone.slice(-4)}` : 'none',
+      customerName,
+      quotationId: cleanQuotationId
+    });
 
-      const fileName = uploadResponse.data.file_name;
-      console.log("PDF uploaded successfully:", fileName);
-
-      // Get WhatsApp share link with customer's phone number
-      const customerPhone = quotation.customer.whatsapp_number || quotation.customer.phone_number;
-      const customerName = quotation.customer.name;
-      const cleanQuotationId = quotationId.replace("WIP_", "");
-      
-      const shareResponse = await axiosInstance.get("/get-signed-url", {
-        params: { 
-          file_name: fileName,
-          phone_number: customerPhone,
-          customer_name: customerName,
-          quotation_id: cleanQuotationId
-        }
-      });
-
-      const whatsappUrl = shareResponse.data.whatsapp_link;
-      console.log("WhatsApp URL generated:", whatsappUrl);
-
-      // Open WhatsApp with the link
-      window.open(whatsappUrl, '_blank');
-      
-    } catch (error) {
-      console.error("Error sharing quotation:", error);
-      alert(`Failed to share the quotation: ${error.response?.data?.error || error.message}`);
-    } finally {
-      setIsSharing(false);
+    if (!customerPhone) {
+      throw new Error("Customer phone number not found. Please add a phone number to the customer profile.");
     }
-  }, [quotationId, quotation, pdfBlob]);
+    
+    // Get WhatsApp share link
+    const shareResponse = await axiosInstance.get("/get-signed-url", {
+      params: { 
+        file_name: fileName,
+        phone_number: customerPhone,
+        customer_name: customerName,
+        quotation_id: cleanQuotationId
+      },
+      timeout: 15000, // 15 second timeout
+    });
+
+    console.log("Share response:", shareResponse.data);
+
+    if (!shareResponse.data.whatsapp_link) {
+      throw new Error("No WhatsApp link generated");
+    }
+
+    const whatsappUrl = shareResponse.data.whatsapp_link;
+    console.log("WhatsApp URL generated successfully");
+
+    // Open WhatsApp with the link
+    const newWindow = window.open(whatsappUrl, '_blank');
+    
+    if (!newWindow) {
+      // Fallback if popup is blocked
+      console.warn("Popup blocked, trying direct navigation");
+      window.location.href = whatsappUrl;
+    } else {
+      console.log("WhatsApp opened in new window");
+    }
+    
+    // Show success message
+    alert("WhatsApp link generated successfully! The quotation has been shared.");
+    
+  } catch (error) {
+    console.error("Error sharing quotation:", error);
+    
+    let errorMessage = "Failed to share the quotation. ";
+    
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      errorMessage += "The operation timed out. Please check your internet connection and try again.";
+    } else if (error.response) {
+      // Server responded with error
+      console.error("Server error response:", error.response.data);
+      errorMessage += error.response.data?.error || `Server error: ${error.response.status}`;
+    } else if (error.request) {
+      // Network error
+      errorMessage += "Network error. Please check your internet connection.";
+    } else {
+      // Other error
+      errorMessage += error.message;
+    }
+    
+    alert(errorMessage);
+  } finally {
+    setIsSharing(false);
+  }
+}, [quotationId, quotation, pdfBlob]);
 
   const handleRegeneratePDF = () => {
     if (quotationId) {
