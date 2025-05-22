@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-share_quotation_bp = Blueprint("share_quotation", __name__)  # Fixed typo in Blueprint name
+share_quotation_bp = Blueprint("share_quotation", __name__)
 
 # Initialize S3 client
 try:
@@ -25,8 +25,8 @@ except Exception as e:
 @share_quotation_bp.route("/upload-quotation", methods=["POST"])
 def upload_file():
     try:
-        file = request.files.get("file")  # Get file from request
-        phone_number = request.form.get("phone_number")  # Get customer phone number from form
+        file = request.files.get("file")
+        phone_number = request.form.get("phone_number")
 
         if not file:
             print("❌ No file found in request")
@@ -36,7 +36,7 @@ def upload_file():
             print("❌ No phone number provided in request")
             return jsonify({"error": "Phone number is required"}), 400
 
-        # Validate phone number (basic check for digits and length)
+        # Validate phone number
         if not (phone_number.isdigit() and len(phone_number) >= 10):
             print("❌ Invalid phone number")
             return jsonify({"error": "Invalid phone number"}), 400
@@ -51,19 +51,19 @@ def upload_file():
             file,
             bucket_name,
             file_name,
-            ExtraArgs={'ContentType': 'application/pdf'}  # Ensure correct MIME type
+            ExtraArgs={'ContentType': 'application/pdf'}
         )
 
         # Generate pre-signed URL
         presigned_url = s3_client.generate_presigned_url(
             "get_object",
             Params={"Bucket": bucket_name, "Key": file_name},
-            ExpiresIn=3600  # 1 hour expiry
+            ExpiresIn=3600
         )
 
-        # Create WhatsApp share link
-        message = f"Here is your quotation: {presigned_url}"
-        encoded_message = urllib.parse.quote(message)  # Encode message for URL safety
+        # Create WhatsApp share link with "Click here" text
+        message = f"Here is your quotation: Click here to view {presigned_url}"
+        encoded_message = urllib.parse.quote(message)
         whatsapp_link = f"https://api.whatsapp.com/send?phone={phone_number}&text={encoded_message}"
 
         print(f"✅ File uploaded and WhatsApp link generated: {whatsapp_link}")
@@ -71,19 +71,20 @@ def upload_file():
         return jsonify({
             "message": "File uploaded successfully!",
             "file_name": file_name,
-            "whatsapp_link": whatsapp_link
+            "whatsapp_link": whatsapp_link,
+            "url": presigned_url
         })
 
     except Exception as e:
         print(f"❌ Error uploading file: {e}")
         return jsonify({"error": str(e)}), 500
 
-# Route to generate pre-signed URL & WhatsApp link (optional, kept for flexibility)
+# Route to generate pre-signed URL & WhatsApp link
 @share_quotation_bp.route("/get-signed-url", methods=["GET"])
 def get_presigned_url():
     try:
         file_name = request.args.get("file_name")
-        phone_number = request.args.get("phone_number")  # Get phone number from query params
+        phone_number = request.args.get("phone_number")
 
         if not file_name:
             print("❌ No file name provided in request")
@@ -105,16 +106,19 @@ def get_presigned_url():
         presigned_url = s3_client.generate_presigned_url(
             "get_object",
             Params={"Bucket": bucket_name, "Key": file_name},
-            ExpiresIn=3600  # 1 hour expiry
+            ExpiresIn=3600
         )
 
-        # Create WhatsApp share link
-        message = f"Here is your quotation: {presigned_url}"
+        # Create WhatsApp share link with "Click here" text
+        message = f"Here is your quotation: Click here to view {presigned_url}"
         encoded_message = urllib.parse.quote(message)
         whatsapp_link = f"https://api.whatsapp.com/send?phone={phone_number}&text={encoded_message}"
         print(f"📲 WhatsApp link generated: {whatsapp_link}")
 
-        return jsonify({"url": presigned_url, "whatsapp_link": whatsapp_link})
+        return jsonify({
+            "url": presigned_url,
+            "whatsapp_link": whatsapp_link
+        })
 
     except Exception as e:
         print(f"❌ Error generating pre-signed URL: {e}")
