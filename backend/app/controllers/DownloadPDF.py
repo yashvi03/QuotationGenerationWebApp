@@ -82,7 +82,7 @@ def download_pdf(quotation_id):
 
         # Customer Details
         customer_text = f"""
-            <b>For:</b> Khajrana Colony Project<br/>
+            <b>For:</b> {customer_data.get('project_name', 'Pharanal')}<br/>
             <b>Party Name:</b> {customer_data.get('name', 'Pharanal')}<br/>
             <b>Address:</b> {customer_data.get('billing_address', 'Pharanal Colony, Scheme No 54 Indore')}<br/>
             <b>City:</b> {customer_data.get('city', 'INDORE')}<br/>

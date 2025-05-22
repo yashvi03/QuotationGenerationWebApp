@@ -177,6 +177,7 @@ def preview_quotation(quotation_id):
                 "customer_id": customer.customer_id if customer else None,
                 'title': customer.title if customer else None,
                 "name": customer.name if customer else "Unknown",
+                "project_name": customer.project_name if customer else "Unknown",
                 'billing_address': customer.billing_address if customer else 'Unknown',
                 'shipping_address': customer.shipping_address if customer else 'Unknown',
                 'phone_number': customer.phone_number if customer else None,

@@ -86,6 +86,7 @@ class Customer(db.Model):
     customer_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = db.Column(db.String(10))
     name = db.Column(db.String(255), nullable=False)
+    project_name = db.Column(db.String(30))
     billing_address = db.Column(db.Text)
     shipping_address = db.Column(db.Text)
     phone_number = db.Column(db.String(15))
@@ -99,6 +100,7 @@ class Customer(db.Model):
             'customer_id': self.customer_id,
             'title': self.title,
             'name': self.name,
+            'project_name': self.project_name,
             'billing_address': self.billing_address,
             'shipping_address': self.shipping_address,
             'phone_number': self.phone_number,

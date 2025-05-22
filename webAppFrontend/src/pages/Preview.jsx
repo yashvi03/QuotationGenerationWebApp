@@ -83,6 +83,7 @@ const Preview = () => {
           customer: {
             customer_id: quotation.customer.customer_id,
             name: quotation.customer.name,
+            project_name: quotation.customer.project_name
           },
         };
 

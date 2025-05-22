@@ -5,9 +5,11 @@ import axiosInstance from "../services/axiosInstance";
 const Customer = ({ onCustomerSaved }) => {
   const [title, setTitle] = useState("");
   const [name, setName] = useState("");
+  const [projectName, setProjectName] = useState("");
   const [billingAddress, setBillingAddress] = useState("");
   const [shippingAddress, setShippingAddress] = useState("");
   const [sameAsBilling, setSameAsBilling] = useState(false);
+  const [sameAsName, setSameAsName] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [sameAsPhone, setSameAsPhone] = useState(false);
@@ -41,13 +43,14 @@ const Customer = ({ onCustomerSaved }) => {
           customer_id: d.customer_id,
           title: d.title,
           name: d.name,
+          project_name: d.project_name,
           billing_address: d.billing_address,
           shipping_address: d.shipping_address,
           phone_number: d.phone_number,
           whatsapp_number: d.whatsapp_number,
           // Store formatted numbers for display
           formatted_phone: stripPrefix(d.phone_number),
-          formatted_whatsapp: stripPrefix(d.whatsapp_number)
+          formatted_whatsapp: stripPrefix(d.whatsapp_number),
         }));
 
         const previewResponse = await axiosInstance.get(
@@ -57,10 +60,12 @@ const Customer = ({ onCustomerSaved }) => {
           const customer = previewResponse.data.customer;
           setTitle(customer.title || "");
           setName(customer.name || "");
+          setProjectName(customer.project_name || "");
           setBillingAddress(customer.billing_address || "");
           setShippingAddress(customer.shipping_address || "");
           setPhoneNumber(stripPrefix(customer.phone_number) || "");
           setWhatsappNumber(stripPrefix(customer.whatsapp_number) || "");
+          setSameAsName(customer.name === customer.project_name);
           setSameAsBilling(
             customer.billing_address === customer.shipping_address
           );
@@ -90,6 +95,12 @@ const Customer = ({ onCustomerSaved }) => {
     if (newValue) setWhatsappNumber(phoneNumber);
   };
 
+  const handleSameAsName = () => {
+    const newValue = !sameAsName;
+    setSameAsName(newValue);
+    if (newValue) setProjectName(name);
+  };
+
   const handleSameAsBilling = () => {
     const newValue = !sameAsBilling;
     setSameAsBilling(newValue);
@@ -101,18 +112,24 @@ const Customer = ({ onCustomerSaved }) => {
     if (sameAsBilling) setShippingAddress(e.target.value);
   };
 
+  const handleNameChange = (e) => {
+    setName(e.target.value);
+    if (sameAsName) setProjectName(e.target.value);
+  };
+
   const handleSubmit = async () => {
     try {
       const customerData = {
         title: title,
         name: name,
+        project_name: projectName,
         billing_address: billingAddress,
         shipping_address: shippingAddress,
         phone_number: "+91" + phoneNumber,
         whatsapp_number: "+91" + whatsappNumber,
       };
 
-      if (!name || !billingAddress || !phoneNumber) {
+      if (!name || !projectName || !billingAddress || !phoneNumber) {
         alert(
           "Please fill in all required fields: Name, Billing Address, and Phone Number"
         );
@@ -148,10 +165,12 @@ const Customer = ({ onCustomerSaved }) => {
     if (selectedCustomer) {
       setTitle(selectedCustomer.title || "");
       setName(selectedCustomer.name || "");
+      setProjectName(selectedCustomer.project_name || "");
       setBillingAddress(selectedCustomer.billing_address || "");
       setShippingAddress(selectedCustomer.shipping_address || "");
       setPhoneNumber(stripPrefix(selectedCustomer.phone_number) || "");
       setWhatsappNumber(stripPrefix(selectedCustomer.whatsapp_number) || "");
+      setSameAsName(selectedCustomer.name === selectedCustomer.project_name);
       setSameAsBilling(
         selectedCustomer.billing_address === selectedCustomer.shipping_address
       );
@@ -231,7 +250,33 @@ const Customer = ({ onCustomerSaved }) => {
           type="text"
           placeholder="Enter customer name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={handleNameChange}
+          required
+        />
+      </div>
+
+      <div className="mb-6">
+        <div className="flex flex-col mb-2">
+          <label className="block text-gray-700 text-sm font-medium mb-2">
+            Project Name <span className="text-red-500">*</span>
+          </label>
+          <label className="inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sameAsName}
+              onChange={handleSameAsName}
+              className="form-checkbox h-4 w-4 text-orange-600"
+            />
+            <span className="ml-2 text-sm text-gray-600">Same as Name</span>
+          </label>
+        </div>
+
+        <input
+          className="appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+          type="text"
+          placeholder="Enter project name"
+          value={projectName}
+          onChange={(e) => setProjectName(e.target.value)}
           required
         />
       </div>
@@ -251,7 +296,7 @@ const Customer = ({ onCustomerSaved }) => {
       </div>
 
       <div className="mb-6">
-        <div className="flex justify-between items-center mb-2">
+        <div className="flex flex-col mb-2">
           <label className="block text-gray-700 text-sm font-medium">
             Shipping Address
           </label>
@@ -296,7 +341,7 @@ const Customer = ({ onCustomerSaved }) => {
       </div>
 
       <div className="mb-6">
-        <div className="flex justify-between items-center mb-2">
+        <div className="flex flex-col mb-2">
           <label className="block text-gray-700 text-sm font-medium">
             WhatsApp Number
           </label>

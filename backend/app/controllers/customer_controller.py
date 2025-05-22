@@ -19,6 +19,7 @@ def add_customer(quotation_id):
         
         title = data.get("title")
         name = data.get("name")
+        project_name = data.get("project_name")
         billing_address = data.get("billing_address")
         shipping_address = data.get("shipping_address")
         phone_number = data.get("phone_number")
@@ -31,6 +32,7 @@ def add_customer(quotation_id):
                 customer_id=customer_id,
                 title=title,
                 name=name,
+                project_name=project_name,
                 billing_address=billing_address,
                 shipping_address=shipping_address,
                 phone_number=phone_number,
@@ -70,6 +72,7 @@ def get_unique_customers():
             Customer.customer_id,
             Customer.title,
             Customer.name,
+            Customer.project_name,
             Customer.billing_address,
             Customer.shipping_address,
             Customer.phone_number,
@@ -84,6 +87,7 @@ def get_unique_customers():
             "customer_id": customer.customer_id,
             "title": customer.title,
             "name": customer.name,
+            "project_name": customer.project_name,
             "billing_address": customer.billing_address,
             "shipping_address": customer.shipping_address,
             "phone_number": customer.phone_number,

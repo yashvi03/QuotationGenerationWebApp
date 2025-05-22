@@ -11,6 +11,7 @@
     RUN pip install --upgrade pip && \
         pip install -r requirements.txt && \
         pip install gunicorn
+    ARG CACHEBUST=1
     COPY backend .
     
     # ---- Final Image ----
