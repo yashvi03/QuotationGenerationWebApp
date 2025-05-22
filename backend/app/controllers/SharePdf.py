@@ -92,102 +92,142 @@ def upload_file():
         print(f"❌ Error uploading file: {e}")
         return jsonify({"error": str(e)}), 500
 
-# SOLUTION 1: Proxy Route (Recommended)
-# @share_quotation_bp.route("/get-signed-url", methods=["GET"])
-# def get_presigned_url():
-#     try:
-#         file_name = request.args.get("file_name")
-#         phone_number = request.args.get("phone_number")
-#         customer_name = request.args.get("customer_name", "")
-#         quotation_id = request.args.get("quotation_id", "")
-
-#         if not file_name:
-#             return jsonify({"error": "File name is required"}), 400
-
-#         formatted_phone = format_phone_number(phone_number)
-#         if not formatted_phone:
-#             return jsonify({"error": "Valid phone number is required"}), 400
-
-#         # Generate temporary token for secure access
-#         temp_token = generate_temp_token()
-#         expires_at = datetime.now() + timedelta(hours=24)
+# SOLUTION 2: Friendly URLs (Updated get-signed-url route)
+@share_quotation_bp.route("/get-signed-url", methods=["GET"])
+def get_presigned_url():
+    try:
+        print("🔄 Starting get-signed-url request")
         
-#         # Store file info with temporary token
-#         temp_links[temp_token] = {
-#             'file_name': file_name,
-#             'expires_at': expires_at,
-#             'accessed': False
-#         }
-
-#         # Clean up expired links
-#         cleanup_expired_links()
-
-#         # Create clean proxy URL instead of direct S3 URL
-#         base_url = request.url_root.rstrip('/')
-#         clean_download_url = f"{base_url}/download/{temp_token}"
-
-#         # Create personalized WhatsApp message with clean URL
-#         greeting = f"Hi {customer_name}! " if customer_name else "Hi! "
-#         quotation_text = f"Quotation #{quotation_id}" if quotation_id else "your quotation"
+        # Get parameters
+        file_name = request.args.get("file_name")
+        phone_number = request.args.get("phone_number")
+        customer_name = request.args.get("customer_name", "")
+        quotation_id = request.args.get("quotation_id", "")
         
-#         message = f"{greeting}Here is {quotation_text} from our company. Click here to download: {clean_download_url}"
+        print(f"📋 Parameters: file_name={file_name}, phone={phone_number}, customer={customer_name}, quotation_id={quotation_id}")
+
+        # Validation
+        if not file_name:
+            print("❌ No file name provided")
+            return jsonify({"error": "File name is required"}), 400
+
+        formatted_phone = format_phone_number(phone_number)
+        if not formatted_phone:
+            print("❌ Invalid phone number")
+            return jsonify({"error": "Valid phone number is required"}), 400
+
+        print(f"✅ Phone formatted: {formatted_phone}")
+
+        # Generate friendly token and ID
+        try:
+            timestamp = datetime.now().strftime('%Y%m%d')
+            friendly_id = quotation_id if quotation_id else f"Q{timestamp}"
+            temp_token = generate_temp_token()[:8]  # Shorter token
+            print(f"🔑 Generated token: {temp_token}, friendly_id: {friendly_id}")
+        except Exception as token_error:
+            print(f"❌ Error generating token: {token_error}")
+            raise token_error
         
-#         encoded_message = urllib.parse.quote(message)
-#         whatsapp_link = f"https://api.whatsapp.com/send?phone={formatted_phone}&text={encoded_message}"
+        # Store token info
+        try:
+            expires_at = datetime.now() + timedelta(hours=24)
+            temp_links[temp_token] = {
+                'file_name': file_name,
+                'expires_at': expires_at,
+                'quotation_id': friendly_id,
+                'accessed': False
+            }
+            print(f"💾 Stored token info: {temp_links[temp_token]}")
+        except Exception as storage_error:
+            print(f"❌ Error storing token: {storage_error}")
+            raise storage_error
 
-#         print(f"✅ Clean download link generated: {clean_download_url}")
-#         print(f"📲 WhatsApp link generated for {formatted_phone}")
+        # Clean up expired links
+        try:
+            cleanup_expired_links()
+            print(f"🧹 Cleanup completed. Active links: {len(temp_links)}")
+        except Exception as cleanup_error:
+            print(f"⚠️ Cleanup error (non-critical): {cleanup_error}")
 
-#         return jsonify({
-#             "download_url": clean_download_url,
-#             "whatsapp_link": whatsapp_link,
-#             "formatted_phone": formatted_phone,
-#             "expires_in": "24 hours",
-#             "token": temp_token
-#         })
+        # Create friendly URL
+        try:
+            # Use a fallback if request.url_root is not available
+            base_url = getattr(request, 'url_root', 'http://localhost:5000/').rstrip('/')
+            friendly_url = f"{base_url}/quotation/{friendly_id}/{temp_token}"
+            print(f"🔗 Generated friendly URL: {friendly_url}")
+        except Exception as url_error:
+            print(f"❌ Error creating URL: {url_error}")
+            raise url_error
 
-#     except Exception as e:
-#         print(f"❌ Error generating signed URL: {e}")
-#         return jsonify({"error": str(e)}), 500
+        # Create WhatsApp message
+        try:
+            greeting = f"Hi {customer_name}! " if customer_name else "Hi! "
+            quotation_text = f"Quotation #{quotation_id}" if quotation_id else "your quotation"
+            
+            message = f"{greeting}Here is {quotation_text} from our company. Click here to view: {friendly_url}"
+            
+            encoded_message = urllib.parse.quote(message)
+            whatsapp_link = f"https://api.whatsapp.com/send?phone={formatted_phone}&text={encoded_message}"
+            print(f"📲 WhatsApp link created successfully")
+        except Exception as message_error:
+            print(f"❌ Error creating message: {message_error}")
+            raise message_error
 
-# # Proxy route to serve files securely
-# @share_quotation_bp.route("/download/<token>", methods=["GET"])
-# def download_file(token):
-#     try:
-#         # Clean up expired links first
-#         cleanup_expired_links()
+        print("✅ Request completed successfully")
+        return jsonify({
+            "url": friendly_url,  # Keep this for backward compatibility
+            "friendly_url": friendly_url,
+            "whatsapp_link": whatsapp_link,
+            "formatted_phone": formatted_phone,
+            "expires_in": "24 hours",
+            "token": temp_token
+        })
+
+    except Exception as e:
+        print(f"❌ Error in get_presigned_url: {str(e)}")
+        print(f"❌ Error type: {type(e).__name__}")
+        import traceback
+        print(f"❌ Full traceback: {traceback.format_exc()}")
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
+
+# Proxy route to serve files securely
+@share_quotation_bp.route("/download/<token>", methods=["GET"])
+def download_file(token):
+    try:
+        # Clean up expired links first
+        cleanup_expired_links()
         
-#         # Check if token exists and is valid
-#         if token not in temp_links:
-#             return jsonify({"error": "Invalid or expired download link"}), 404
+        # Check if token exists and is valid
+        if token not in temp_links:
+            return jsonify({"error": "Invalid or expired download link"}), 404
 
-#         file_info = temp_links[token]
-#         file_name = file_info['file_name']
-#         bucket_name = os.getenv('AWS_BUCKET_NAME')
+        file_info = temp_links[token]
+        file_name = file_info['file_name']
+        bucket_name = os.getenv('AWS_BUCKET_NAME')
 
-#         print(f"🔗 Serving file {file_name} via proxy")
+        print(f"🔗 Serving file {file_name} via proxy")
 
-#         # Generate short-lived presigned URL (1 hour)
-#         presigned_url = s3_client.generate_presigned_url(
-#             "get_object",
-#             Params={"Bucket": bucket_name, "Key": file_name},
-#             ExpiresIn=3600  # 1 hour
-#         )
+        # Generate short-lived presigned URL (1 hour)
+        presigned_url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket_name, "Key": file_name},
+            ExpiresIn=3600  # 1 hour
+        )
 
-#         # Mark as accessed (optional - for analytics)
-#         temp_links[token]['accessed'] = True
-#         temp_links[token]['accessed_at'] = datetime.now()
+        # Mark as accessed (optional - for analytics)
+        temp_links[token]['accessed'] = True
+        temp_links[token]['accessed_at'] = datetime.now()
 
-#         # Redirect to the presigned URL
-#         return redirect(presigned_url)
+        # Redirect to the presigned URL
+        return redirect(presigned_url)
 
-#     except Exception as e:
-#         print(f"❌ Error serving file: {e}")
-#         return jsonify({"error": "Unable to serve file"}), 500
+    except Exception as e:
+        print(f"❌ Error serving file: {e}")
+        return jsonify({"error": "Unable to serve file"}), 500
 
-# SOLUTION 2: Alternative with friendly URLs
+# Alternative route (if you want to keep both options)
 @share_quotation_bp.route("/get-friendly-url", methods=["GET"])
-def get_friendly_url():
+def get_friendly_url_alternative():
     try:
         file_name = request.args.get("file_name")
         phone_number = request.args.get("phone_number")
@@ -259,3 +299,64 @@ def view_quotation(quotation_id, token):
         print(f"❌ Error viewing quotation: {e}")
         return jsonify({"error": "Unable to view quotation"}), 500
 
+# SOLUTION 3: Custom message without URL exposure
+@share_quotation_bp.route("/get-whatsapp-link", methods=["GET"])
+def get_whatsapp_link():
+    try:
+        phone_number = request.args.get("phone_number")
+        customer_name = request.args.get("customer_name", "")
+        quotation_id = request.args.get("quotation_id", "")
+        message_text = request.args.get("message", "")
+
+        if not phone_number:
+            return jsonify({"error": "Phone number is required"}), 400
+
+        formatted_phone = format_phone_number(phone_number)
+        if not formatted_phone:
+            return jsonify({"error": "Valid phone number is required"}), 400
+
+        # Create message without exposing URLs
+        if message_text:
+            message = message_text
+        else:
+            greeting = f"Hi {customer_name}! " if customer_name else "Hi! "
+            quotation_text = f"Quotation #{quotation_id}" if quotation_id else "your quotation"
+            message = f"{greeting}Thank you for your interest! {quotation_text} has been prepared. Please check your email or contact us for the document."
+
+        encoded_message = urllib.parse.quote(message)
+        whatsapp_link = f"https://api.whatsapp.com/send?phone={formatted_phone}&text={encoded_message}"
+
+        return jsonify({
+            "whatsapp_link": whatsapp_link,
+            "formatted_phone": formatted_phone,
+            "message": message
+        })
+
+    except Exception as e:
+        print(f"❌ Error generating WhatsApp link: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# Route to delete uploaded file from S3
+@share_quotation_bp.route("/delete-quotation", methods=["DELETE"])
+def delete_file():
+    try:
+        file_name = request.args.get("file_name")
+        
+        if not file_name:
+            return jsonify({"error": "File name is required"}), 400
+
+        bucket_name = os.getenv('AWS_BUCKET_NAME')
+        s3_client.delete_object(Bucket=bucket_name, Key=file_name)
+        
+        print(f"✅ File {file_name} deleted successfully from S3")
+        return jsonify({"message": "File deleted successfully"})
+
+    except Exception as e:
+        print(f"❌ Error deleting file: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# Clean up expired links periodically (you might want to run this as a background task)
+@share_quotation_bp.route("/cleanup-expired", methods=["POST"])
+def manual_cleanup():
+    cleanup_expired_links()
+    return jsonify({"message": f"Cleaned up expired links. Active links: {len(temp_links)}"})
