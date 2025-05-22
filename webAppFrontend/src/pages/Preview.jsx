@@ -289,7 +289,7 @@ const Preview = () => {
     localStorage.setItem("quotationId", response.data.quotation_id);
   }, [navigate, quotation]);
 
-  // Updated WhatsApp sharing function
+  // Updated WhatsApp sharing function with secure URLs
   const handleShare = useCallback(async () => {
     if (!quotationId || !quotation || !pdfBlob) {
       console.error("Cannot share: missing required data");
@@ -300,40 +300,60 @@ const Preview = () => {
     try {
       setIsSharing(true);
       
-      // Create FormData and append the PDF file
+      // Create FormData and append the PDF file with additional data
       const formData = new FormData();
       const file = new File([pdfBlob], `quotation_${quotationId.replace("WIP_", "")}.pdf`, {
         type: "application/pdf",
       });
       formData.append("file", file);
+      formData.append("quotation_id", quotation.quotation_id);
+      formData.append("customer_id", quotation.customer.customer_id);
 
-      console.log("Uploading PDF to S3...");
+      console.log("Uploading PDF and creating secure link...");
       
-      // Upload PDF to S3
+      // Upload PDF to S3 and create secure short link
       const uploadResponse = await axiosInstance.post("/upload-quotation", formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
-      const fileName = uploadResponse.data.file_name;
-      console.log("PDF uploaded successfully:", fileName);
+      const shortCode = uploadResponse.data.short_code;
+      console.log("Secure link created:", shortCode);
 
-      // Get WhatsApp share link with customer's phone number
+      // Get customer phone number
       const customerPhone = quotation.customer.whatsapp_number || quotation.customer.phone_number;
       
-      const shareResponse = await axiosInstance.get("/get-signed-url", {
+      if (!customerPhone) {
+        alert("Customer phone number not found. Please add a phone number for WhatsApp sharing.");
+        return;
+      }
+
+      // Generate WhatsApp link with secure URL
+      const shareResponse = await axiosInstance.get("/get-whatsapp-link", {
         params: { 
-          file_name: fileName,
-          phone_number: customerPhone // Pass customer's phone number
+          short_code: shortCode,
+          phone_number: customerPhone,
+          customer_name: quotation.customer.name,
+          quotation_id: quotation.quotation_id
         }
       });
 
       const whatsappUrl = shareResponse.data.whatsapp_link;
+      const secureUrl = shareResponse.data.secure_url;
+      
       console.log("WhatsApp URL generated:", whatsappUrl);
+      console.log("Secure document URL:", secureUrl);
 
-      // Open WhatsApp with the link
-      window.open(whatsappUrl, '_blank');
+      // Show confirmation with secure URL
+      const confirmed = window.confirm(
+        `Ready to share via WhatsApp!\n\nSecure link: ${secureUrl}\n\nThis link will expire in 24 hours and can be accessed up to 10 times.\n\nClick OK to open WhatsApp.`
+      );
+
+      if (confirmed) {
+        // Open WhatsApp with the secure link
+        window.open(whatsappUrl, '_blank');
+      }
       
     } catch (error) {
       console.error("Error sharing quotation:", error);
