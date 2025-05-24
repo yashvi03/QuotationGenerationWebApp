@@ -18,10 +18,25 @@ const Preview = () => {
   const [pdfError, setPdfError] = useState(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false); // New state for download indication
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
   const { id } = useParams();
   const pdfGeneratedRef = useRef(false);
+
+  // Mobile detection effect
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const mobileKeywords = ['mobile', 'android', 'iphone', 'ipad', 'ipod', 'blackberry', 'windows phone'];
+      const isMobileDevice = mobileKeywords.some(keyword => userAgent.includes(keyword)) || window.innerWidth <= 768;
+      setIsMobile(isMobileDevice);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const getQuotationId = () => {
     if (id) return id;
@@ -227,7 +242,6 @@ const Preview = () => {
     navigate("/");
   }, [navigate]);
 
-  // FIXED: Enhanced download function with user feedback
   const handleDownload = useCallback(async () => {
     if (!pdfUrl || !pdfBlob) {
       console.error("Cannot download: PDF URL or blob not available");
@@ -239,7 +253,6 @@ const Preview = () => {
       setIsDownloading(true);
       console.log("Starting download...");
 
-      // Create download link
       const link = document.createElement("a");
       link.href = pdfUrl;
       link.setAttribute(
@@ -247,19 +260,15 @@ const Preview = () => {
         `quotation_${quotationId.replace("WIP_", "")}.pdf`
       );
 
-      // Add link to DOM, click it, then remove it
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
       console.log("PDF download initiated");
 
-      // Simulate download completion feedback (browsers handle actual download)
       setTimeout(() => {
         setIsDownloading(false);
-        // Optional: Show success message
-        // You could add a toast notification here
-      }, 2000); // 2 second delay to show feedback
+      }, 2000);
     } catch (err) {
       console.error("Download failed:", err);
       setIsDownloading(false);
@@ -324,8 +333,6 @@ const Preview = () => {
     localStorage.setItem("quotationId", response.data.quotation_id);
   }, [navigate, quotation]);
 
-  // Updated WhatsApp sharing function
-
   const handleShare = useCallback(async () => {
     if (!quotationId || !quotation || !pdfBlob) {
       console.error("Cannot share: missing required data", {
@@ -341,7 +348,6 @@ const Preview = () => {
       setIsSharing(true);
       console.log("Starting share process...");
 
-      // Get customer phone number
       const customerPhone =
         quotation.customer.whatsapp_number || quotation.customer.phone_number;
       if (!customerPhone) {
@@ -350,13 +356,11 @@ const Preview = () => {
         );
       }
 
-      // Basic phone number validation
-      const cleanPhone = customerPhone.replace(/\D/g, ""); // Remove non-digits
+      const cleanPhone = customerPhone.replace(/\D/g, "");
       if (cleanPhone.length < 10) {
         throw new Error("Invalid phone number. Must be at least 10 digits.");
       }
 
-      // Prepare FormData with PDF and phone number
       const formData = new FormData();
       const file = new File(
         [pdfBlob],
@@ -366,13 +370,12 @@ const Preview = () => {
       formData.append("file", file);
       formData.append("phone_number", cleanPhone);
 
-      console.log("Uploading PDF to S3 with phone number:", {
+      console.log("Uploading PDF for WhatsApp sharing:", {
         fileName: file.name,
         fileSize: file.size,
         phoneNumber: cleanPhone ? `***${cleanPhone.slice(-4)}` : "none",
       });
 
-      // Send PDF and phone number to backend
       const uploadResponse = await axiosInstance.post(
         "/upload-quotation",
         formData,
@@ -380,34 +383,16 @@ const Preview = () => {
           headers: {
             "Content-Type": "multipart/form-data",
           },
-          timeout: 30000, // 30 second timeout
+          timeout: 30000,
         }
       );
 
       console.log("Upload response:", uploadResponse.data);
 
-      // Verify response
       if (uploadResponse.data.message !== "File uploaded successfully!") {
         throw new Error(uploadResponse.data.error || "Failed to upload PDF.");
       }
 
-      const whatsappUrl = uploadResponse.data.whatsapp_link;
-      if (!whatsappUrl) {
-        throw new Error("No WhatsApp link generated.");
-      }
-
-      console.log("WhatsApp URL generated:", whatsappUrl);
-
-      // Open WhatsApp link
-      const newWindow = window.open(whatsappUrl, "_blank");
-      if (!newWindow) {
-        console.warn("Popup blocked, trying direct navigation");
-        window.location.href = whatsappUrl;
-      } else {
-        console.log("WhatsApp opened in new window");
-      }
-
-      // Show success message
       alert("Quotation shared successfully via WhatsApp!");
     } catch (error) {
       console.error("Error sharing quotation:", error);
@@ -439,6 +424,13 @@ const Preview = () => {
     if (quotationId) {
       pdfGeneratedRef.current = false;
       handleGeneratePDF(quotationId);
+    }
+  };
+
+  // Mobile PDF view handler
+  const handleMobilePdfView = () => {
+    if (pdfUrl) {
+      window.open(pdfUrl, '_blank');
     }
   };
 
@@ -484,7 +476,6 @@ const Preview = () => {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-gray-700">PDF Preview</h2>
             <div className="flex gap-2">
-              {/* FIXED: Enhanced download button with loading state */}
               <button
                 onClick={handleDownload}
                 disabled={isDownloading}
@@ -518,7 +509,6 @@ const Preview = () => {
             </div>
           </div>
 
-          {/* Download Success/Status Notification */}
           {isDownloading && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
               <div className="flex items-center">
@@ -545,21 +535,78 @@ const Preview = () => {
                 </button>
               </div>
             ) : pdfUrl ? (
-              <object
-                data={pdfUrl}
-                type="application/pdf"
-                width="100%"
-                height="600px"
-                className="rounded-lg"
-              >
-                <p className="text-red-500 text-center py-4">
-                  Your browser cannot display the PDF.{" "}
-                  <a href={pdfUrl} download>
-                    Download it instead
-                  </a>
-                  .
-                </p>
-              </object>
+              <>
+                {isMobile ? (
+                  // Mobile view - show button to open PDF in new tab
+                  <div className="text-center py-20 bg-gray-50">
+                    <div className="mb-4">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-16 w-16 mx-auto text-orange-600 mb-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                      PDF Ready to View
+                    </h3>
+                    <p className="text-gray-600 mb-6 text-sm">
+                      Tap the button below to open your PDF in a new tab
+                    </p>
+                    <button
+                      onClick={handleMobilePdfView}
+                      className="px-6 py-3 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors inline-flex items-center justify-center font-medium"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 mr-2"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        />
+                      </svg>
+                      View PDF
+                    </button>
+                  </div>
+                ) : (
+                  // Desktop view - embed PDF
+                  <object
+                    data={pdfUrl}
+                    type="application/pdf"
+                    width="100%"
+                    height="600px"
+                    className="rounded-lg"
+                  >
+                    <p className="text-red-500 text-center py-4">
+                      Your browser cannot display the PDF.{" "}
+                      <a href={pdfUrl} download>
+                        Download it instead
+                      </a>
+                      .
+                    </p>
+                  </object>
+                )}
+              </>
             ) : (
               <div className="text-center py-10">
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-600 mx-auto"></div>
@@ -603,10 +650,16 @@ const Preview = () => {
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5 mr-2"
-                  fill="currentColor"
+                  fill="none"
                   viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  <path d="M20.33 4.67a1.86 1.86 0 00-2.3-.2L9.55 9.2a4.21 4.21 0 00-1.3-.57A4.16 4.16 0 004 12.83a4.16 4.16 0 004.25 4.16 4.21 4.21 0 001.3-.57l8.48 4.73a1.86 1.86 0 002.3-.2 2.07 2.07 0 00.47-2.3L17.2 13.5l3.62-5.13a2.07 2.07 0 00-.49-2.3zM8.25 15.83A2.16 2.16 0 015.5 12.83a2.16 2.16 0 012.75-2.17c.66.15 1.2.55 1.55 1.08l1.82 2.58-1.82 2.58a2.2 2.2 0 01-1.55 1.08zm10.58 2.5a.47.47 0 01-.58.05L9.2 13.5l9.05-4.88a.47.47 0 01.58.05.67.67 0 01.15.58l-3.62 5.13 3.62 5.12a.67.67 0 01-.15.58z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.68 3 3 0 00-5.367 2.68zm0 9.316a3 3 0 105.368 2.68 3 3 0 00-5.368-2.68z"
+                  />
                 </svg>
               )}
               {isSharing ? "Sharing..." : "Share via WhatsApp"}
