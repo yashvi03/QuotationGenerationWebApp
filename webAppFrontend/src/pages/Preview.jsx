@@ -20,6 +20,7 @@ const Preview = () => {
   const [isSharing, setIsSharing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showPdfViewer, setShowPdfViewer] = useState(false);
   const location = useLocation();
   const { id } = useParams();
   const pdfGeneratedRef = useRef(false);
@@ -28,14 +29,24 @@ const Preview = () => {
   useEffect(() => {
     const checkMobile = () => {
       const userAgent = navigator.userAgent.toLowerCase();
-      const mobileKeywords = ['mobile', 'android', 'iphone', 'ipad', 'ipod', 'blackberry', 'windows phone'];
-      const isMobileDevice = mobileKeywords.some(keyword => userAgent.includes(keyword)) || window.innerWidth <= 768;
+      const mobileKeywords = [
+        "mobile",
+        "android",
+        "iphone",
+        "ipad",
+        "ipod",
+        "blackberry",
+        "windows phone",
+      ];
+      const isMobileDevice =
+        mobileKeywords.some((keyword) => userAgent.includes(keyword)) ||
+        window.innerWidth <= 768;
       setIsMobile(isMobileDevice);
     };
 
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   const getQuotationId = () => {
@@ -348,6 +359,30 @@ const Preview = () => {
       setIsSharing(true);
       console.log("Starting share process...");
 
+      // Check if Web Share API is available and supports files
+      if (navigator.share && navigator.canShare) {
+        const fileName = `quotation_${quotationId.replace("WIP_", "")}.pdf`;
+        const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              title: `Quotation ${quotationId.replace("WIP_", "")}`,
+              text: `Please find attached the quotation for ${quotation.customer.name}`,
+              files: [file],
+            });
+            console.log("File shared successfully via Web Share API");
+            return;
+          } catch (shareError) {
+            console.log(
+              "Web Share API failed, falling back to WhatsApp:",
+              shareError
+            );
+          }
+        }
+      }
+
+      // Fallback to WhatsApp sharing
       const customerPhone =
         quotation.customer.whatsapp_number || quotation.customer.phone_number;
       if (!customerPhone) {
@@ -427,11 +462,15 @@ const Preview = () => {
     }
   };
 
-  // Mobile PDF view handler
+  // Mobile PDF view handler - now opens in the same app
   const handleMobilePdfView = () => {
     if (pdfUrl) {
-      window.open(pdfUrl, '_blank');
+      setShowPdfViewer(true);
     }
+  };
+
+  const handleClosePdfViewer = () => {
+    setShowPdfViewer(false);
   };
 
   if (isLoading) {
@@ -447,6 +486,73 @@ const Preview = () => {
 
   if (error) {
     return <div className="p-4 sm:p-6 text-red-500">Error: {error}</div>;
+  }
+
+  // Mobile PDF Viewer Modal
+  if (showPdfViewer && isMobile && pdfUrl) {
+    return (
+      <div className="fixed inset-0 bg-white z-50 flex flex-col">
+        <div className="flex items-center justify-between p-4 bg-orange-600 text-white">
+          <h2 className="text-lg font-semibold">PDF Viewer</h2>
+          <button
+            onClick={handleClosePdfViewer}
+            className="p-2 hover:bg-orange-700 rounded-md transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <object
+            data={pdfUrl}
+            type="application/pdf"
+            width="100%"
+            height="100%"
+            className="w-full h-full"
+          >
+            <div className="flex flex-col items-center justify-center h-full p-4">
+              <p className="text-red-500 text-center mb-4">
+                Your browser cannot display the PDF directly.
+              </p>
+              <button
+                onClick={handleDownload}
+                className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
+              >
+                Download PDF
+              </button>
+            </div>
+          </object>
+        </div>
+        <div className="p-4 bg-gray-50 border-t flex gap-2">
+          <button
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50"
+          >
+            {isDownloading ? "Downloading..." : "Download"}
+          </button>
+          <button
+            onClick={handleShare}
+            disabled={isSharing}
+            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
+          >
+            {isSharing ? "Sharing..." : "Share"}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -537,7 +643,7 @@ const Preview = () => {
             ) : pdfUrl ? (
               <>
                 {isMobile ? (
-                  // Mobile view - show button to open PDF in new tab
+                  // Mobile view - show button to open PDF in same app
                   <div className="text-center py-20 bg-gray-50">
                     <div className="mb-4">
                       <svg
@@ -559,7 +665,7 @@ const Preview = () => {
                       PDF Ready to View
                     </h3>
                     <p className="text-gray-600 mb-6 text-sm">
-                      Tap the button below to open your PDF in a new tab
+                      Tap the button below to view your PDF
                     </p>
                     <button
                       onClick={handleMobilePdfView}
@@ -641,7 +747,7 @@ const Preview = () => {
             </button>
             <button
               onClick={handleShare}
-              disabled={isSharing}
+              disabled={isSharing || !pdfBlob}
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSharing ? (
