@@ -11,6 +11,14 @@ const Margin = ({ onSave }) => {  // Add onSave prop
   const location = useLocation();
   const quotationId = location.state?.quotationId;
 
+  // Check if all margins are filled
+  const areAllMarginsFilled = () => {
+    return data.length > 0 && data.every(mc => 
+      margins[mc.mc_name] && 
+      margins[mc.mc_name].toString().trim() !== ""
+    );
+  };
+
   useEffect(() => {
     if (!quotationId) {
       setError("Error: Quotation ID is missing.");
@@ -101,6 +109,8 @@ const Margin = ({ onSave }) => {  // Add onSave prop
     );
   }
 
+  const isButtonDisabled = !areAllMarginsFilled();
+
   return (
     <div className="p-4">
       {data.length === 0 ? (
@@ -139,7 +149,12 @@ const Margin = ({ onSave }) => {  // Add onSave prop
       <div className="flex items-center justify-end">
         <button
           onClick={handleSubmit}
-          className="bg-orange-500 hover:bg-orange-700 text-white font-medium py-2 px-6 rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition duration-150 ease-in-out"
+          disabled={isButtonDisabled}
+          className={`font-medium py-2 px-6 rounded focus:outline-none transition duration-150 ease-in-out ${
+            isButtonDisabled
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-orange-500 hover:bg-orange-700 text-white focus:ring-2 focus:ring-offset-2 focus:ring-orange-500'
+          }`}
         >
           Save and Continue
         </button>

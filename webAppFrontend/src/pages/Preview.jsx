@@ -27,6 +27,45 @@ const Preview = () => {
   const pdfGeneratedRef = useRef(false);
   const pdfViewerRef = useRef(null);
 
+  // Scroll to top function
+  const scrollToTop = useCallback(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    // Also try direct scroll in case smooth doesn't work
+    setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 100);
+  }, []);
+
+  // Scroll to top on component mount and route changes
+  useEffect(() => {
+    scrollToTop();
+  }, [scrollToTop, id]);
+
+  // Scroll to top when loading state changes
+  useEffect(() => {
+    if (!isLoading) {
+      scrollToTop();
+    }
+  }, [isLoading, scrollToTop]);
+
+  // Scroll to top when quotation data is loaded
+  useEffect(() => {
+    if (quotation) {
+      setTimeout(() => {
+        scrollToTop();
+      }, 100);
+    }
+  }, [quotation, scrollToTop]);
+
+  // Scroll to top when PDF is generated
+  useEffect(() => {
+    if (pdfUrl && !isGeneratingPdf) {
+      setTimeout(() => {
+        scrollToTop();
+      }, 200);
+    }
+  }, [pdfUrl, isGeneratingPdf, scrollToTop]);
+
   // Mobile detection effect
   useEffect(() => {
     const checkMobile = () => {
@@ -152,6 +191,10 @@ const Preview = () => {
         setPdfUrl(url);
         setPdfError(null);
         clearTimeout(timeoutId);
+
+        // Scroll to top after PDF is generated
+        setTimeout(() => scrollToTop(), 300);
+
         return url;
       } catch (error) {
         console.error("Error in PDF generation:", error);
@@ -162,7 +205,7 @@ const Preview = () => {
         setIsGeneratingPdf(false);
       }
     },
-    [pdfUrl, isGeneratingPdf, quotation]
+    [pdfUrl, isGeneratingPdf, quotation, scrollToTop]
   );
 
   useEffect(() => {
@@ -193,6 +236,9 @@ const Preview = () => {
         if (!quotationId.startsWith("WIP_")) {
           setIsConfirmed(true);
         }
+
+        // Scroll to top after quotation is loaded
+        setTimeout(() => scrollToTop(), 100);
       } catch (error) {
         setError(error.message || "Error fetching quotation");
         console.error("Error fetching quotation:", error);
@@ -202,7 +248,7 @@ const Preview = () => {
     };
 
     fetchQuotation();
-  }, [quotationId]);
+  }, [quotationId, scrollToTop]);
 
   useEffect(() => {
     if (
@@ -326,13 +372,16 @@ const Preview = () => {
       setIsConfirmed(true);
       localStorage.setItem("quotationId", confirmedQuotationId);
       navigate(`/preview/${confirmedQuotationId}`, { replace: true });
+
+      // Scroll to top after confirmation
+      setTimeout(() => scrollToTop(), 100);
     } catch (error) {
       setError(error.message || "Error confirming quotation");
       console.error("Error:", error);
     } finally {
       setIsLoading(false);
     }
-  }, [quotation, quotationId, navigate]);
+  }, [quotation, quotationId, navigate, scrollToTop]);
 
   const handleEdit = useCallback(async () => {
     if (!quotation) return;
@@ -468,12 +517,16 @@ const Preview = () => {
   const handleMobilePdfView = () => {
     if (pdfUrl) {
       setShowPdfViewer(true);
+      // Scroll to top when opening PDF viewer
+      setTimeout(() => scrollToTop(), 100);
     }
   };
 
   const handleClosePdfViewer = () => {
     setShowPdfViewer(false);
     setPdfScale(1);
+    // Scroll to top when closing PDF viewer
+    setTimeout(() => scrollToTop(), 100);
   };
 
   // PDF zoom handlers
