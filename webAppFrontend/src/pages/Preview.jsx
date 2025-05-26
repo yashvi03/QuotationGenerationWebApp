@@ -21,9 +21,11 @@ const Preview = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showPdfViewer, setShowPdfViewer] = useState(false);
+  const [pdfScale, setPdfScale] = useState(1);
   const location = useLocation();
   const { id } = useParams();
   const pdfGeneratedRef = useRef(false);
+  const pdfViewerRef = useRef(null);
 
   // Mobile detection effect
   useEffect(() => {
@@ -471,6 +473,20 @@ const Preview = () => {
 
   const handleClosePdfViewer = () => {
     setShowPdfViewer(false);
+    setPdfScale(1);
+  };
+
+  // PDF zoom handlers
+  const handleZoomIn = () => {
+    setPdfScale((prev) => Math.min(prev + 0.25, 3));
+  };
+
+  const handleZoomOut = () => {
+    setPdfScale((prev) => Math.max(prev - 0.25, 0.5));
+  };
+
+  const handleResetZoom = () => {
+    setPdfScale(1);
   };
 
   if (isLoading) {
@@ -488,11 +504,12 @@ const Preview = () => {
     return <div className="p-4 sm:p-6 text-red-500">Error: {error}</div>;
   }
 
-  // Mobile PDF Viewer Modal
+  // Mobile PDF Viewer Modal - Fixed to stay within app
   if (showPdfViewer && isMobile && pdfUrl) {
     return (
       <div className="fixed inset-0 bg-white z-50 flex flex-col">
-        <div className="flex items-center justify-between p-4 bg-orange-600 text-white">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 bg-orange-600 text-white shadow-md">
           <h2 className="text-lg font-semibold">PDF Viewer</h2>
           <button
             onClick={handleClosePdfViewer}
@@ -514,41 +531,154 @@ const Preview = () => {
             </svg>
           </button>
         </div>
-        <div className="flex-1 overflow-hidden">
-          <object
-            data={pdfUrl}
-            type="application/pdf"
-            width="100%"
-            height="100%"
-            className="w-full h-full"
+
+        {/* Zoom Controls */}
+        <div className="flex items-center justify-center p-2 bg-gray-100 border-b gap-2">
+          <button
+            onClick={handleZoomOut}
+            className="p-2 bg-white border rounded-md hover:bg-gray-50 transition-colors"
+            disabled={pdfScale <= 0.5}
           >
-            <div className="flex flex-col items-center justify-center h-full p-4">
-              <p className="text-red-500 text-center mb-4">
-                Your browser cannot display the PDF directly.
-              </p>
-              <button
-                onClick={handleDownload}
-                className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
-              >
-                Download PDF
-              </button>
-            </div>
-          </object>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M20 12H4"
+              />
+            </svg>
+          </button>
+          <span className="px-3 py-1 bg-white border rounded-md text-sm font-medium min-w-16 text-center">
+            {Math.round(pdfScale * 100)}%
+          </span>
+          <button
+            onClick={handleZoomIn}
+            className="p-2 bg-white border rounded-md hover:bg-gray-50 transition-colors"
+            disabled={pdfScale >= 3}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+          </button>
+          <button
+            onClick={handleResetZoom}
+            className="px-3 py-1 bg-white border rounded-md hover:bg-gray-50 transition-colors text-sm"
+          >
+            Reset
+          </button>
         </div>
+
+        {/* PDF Content */}
+        <div className="flex-1 overflow-auto bg-gray-200 p-2">
+          <div className="flex justify-center">
+            <div
+              className="bg-white shadow-lg"
+              style={{
+                transform: `scale(${pdfScale})`,
+                transformOrigin: "top center",
+                marginBottom: pdfScale > 1 ? `${(pdfScale - 1) * 100}%` : "0",
+              }}
+            >
+              <iframe
+                ref={pdfViewerRef}
+                src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                width="100%"
+                height="800px"
+                style={{
+                  border: "none",
+                  display: "block",
+                  minWidth: "350px",
+                }}
+                title="PDF Viewer"
+                onLoad={() => {
+                  console.log("PDF iframe loaded successfully");
+                }}
+                onError={(e) => {
+                  console.error("PDF iframe load error:", e);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Action Bar */}
         <div className="p-4 bg-gray-50 border-t flex gap-2">
           <button
             onClick={handleDownload}
             disabled={isDownloading}
-            className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center justify-center"
           >
-            {isDownloading ? "Downloading..." : "Download"}
+            {isDownloading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                Downloading...
+              </>
+            ) : (
+              <>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+                Download
+              </>
+            )}
           </button>
           <button
             onClick={handleShare}
             disabled={isSharing}
-            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center"
           >
-            {isSharing ? "Sharing..." : "Share"}
+            {isSharing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                Sharing...
+              </>
+            ) : (
+              <>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.68 3 3 0 00-5.367 2.68zm0 9.316a3 3 0 105.368 2.68 3 3 0 00-5.368-2.68z"
+                  />
+                </svg>
+                Share
+              </>
+            )}
           </button>
         </div>
       </div>
