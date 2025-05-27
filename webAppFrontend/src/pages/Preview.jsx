@@ -522,7 +522,7 @@ const Preview = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto bg-gray-100 min-h-screen">
+    <div className="p-4 sm:p-6 mx-auto bg-gray-100 min-h-screen">
       <div className="mb-6 bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200">
         <h1 className="text-2xl font-bold mb-6 text-orange-600 border-b pb-3">
           Quotation Preview
@@ -623,7 +623,7 @@ const Preview = () => {
       </div>
 
       {quotation?.cards?.length > 0 && (
-        <div className="bg-white p-4 sm:p-6 border-t border-gray-200 shadow-sm mt-6">
+        <div className="bg-white p-4 sm:p-6 border-t border-gray-200 shadow-sm mt-6 m-0">
           <div className="max-w-full mx-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-700">
@@ -708,7 +708,7 @@ const Preview = () => {
                       />
                     </svg>
                   )}
-                  {isSharing ? "Sharing..." : "Share via WhatsApp"}
+                  {isSharing ? "Sharing..." : "Share"}
                 </button>
               </div>
             ) : (
