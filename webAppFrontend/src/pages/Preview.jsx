@@ -213,6 +213,33 @@ const Preview = () => {
     fetchQuotation();
   }, [quotationId, scrollToTop]);
 
+  useEffect(() => {
+    if (
+      isConfirmed &&
+      quotation &&
+      quotation.cards?.length &&
+      quotation.customer &&
+      !pdfGeneratedRef.current &&
+      !quotationId.startsWith("WIP_")
+    ) {
+      pdfGeneratedRef.current = true;
+      const timer = setTimeout(() => {
+        console.log("Triggering PDF generation for quotation:", quotationId);
+        handleGeneratePDF(quotationId);
+      }, 500);
+      return () => clearTimeout(timer);
+    } else {
+      console.log("Skipping PDF generation", {
+        isConfirmed,
+        hasQuotation: !!quotation,
+        hasCards: !!quotation?.cards?.length,
+        hasCustomer: !!quotation?.customer,
+        pdfGenerated: pdfGeneratedRef.current,
+        isWip: quotationId.startsWith("WIP_"),
+      });
+    }
+  }, [isConfirmed, quotation, quotationId, handleGeneratePDF]);
+
   const getMarginForItem = (mcName) => {
     if (!quotation?.margins || !mcName) return 0;
     const marginObj = quotation.margins.find(
@@ -236,6 +263,49 @@ const Preview = () => {
   const handleSaveAndExit = useCallback(() => {
     navigate("/");
   }, [navigate]);
+
+  const handleDownload = useCallback(async () => {
+    if (!pdfUrl || !pdfBlob) {
+      // Try to generate PDF first if it doesn't exist
+      if (!isGeneratingPdf && quotationId) {
+        const generatedUrl = await handleGeneratePDF(quotationId);
+        if (!generatedUrl) {
+          alert("Failed to generate PDF. Please try again.");
+          return;
+        }
+      } else {
+        console.error("Cannot download: PDF URL or blob not available");
+        alert("PDF not ready. Please try regenerating the PDF.");
+        return;
+      }
+    }
+
+    try {
+      setIsDownloading(true);
+      console.log("Starting download...");
+
+      const link = document.createElement("a");
+      link.href = pdfUrl;
+      link.setAttribute(
+        "download",
+        `quotation_${quotationId.replace("WIP_", "")}.pdf`
+      );
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      console.log("PDF download initiated");
+
+      setTimeout(() => {
+        setIsDownloading(false);
+      }, 2000);
+    } catch (err) {
+      console.error("Download failed:", err);
+      setIsDownloading(false);
+      alert("Download failed. Please try again.");
+    }
+  }, [pdfUrl, pdfBlob, quotationId, isGeneratingPdf, handleGeneratePDF]);
 
   const handleConfirmAction = useCallback(async () => {
     if (!quotation) return;
@@ -269,6 +339,7 @@ const Preview = () => {
       }
       setQuotation(quotationResponse.data);
 
+      pdfGeneratedRef.current = false;
       setIsModalOpen(false);
       setIsConfirmed(true);
       localStorage.setItem("quotationId", confirmedQuotationId);
@@ -295,6 +366,133 @@ const Preview = () => {
     navigate("/home", { state: { quotationId: response.data.quotation_id } });
     localStorage.setItem("quotationId", response.data.quotation_id);
   }, [navigate, quotation]);
+
+  const handleShare = useCallback(async () => {
+    if (!quotationId || !quotation) {
+      console.error("Cannot share: missing required data", {
+        hasQuotationId: !!quotationId,
+        hasQuotation: !!quotation,
+      });
+      alert("Quotation data not ready. Please try again.");
+      return;
+    }
+
+    // Generate PDF if it doesn't exist
+    let currentPdfBlob = pdfBlob;
+    if (!currentPdfBlob && !isGeneratingPdf) {
+      const generatedUrl = await handleGeneratePDF(quotationId);
+      if (!generatedUrl) {
+        alert("Failed to generate PDF for sharing. Please try again.");
+        return;
+      }
+      // Wait for the PDF blob to be set
+      currentPdfBlob = pdfBlob;
+    }
+
+    if (!currentPdfBlob) {
+      alert("PDF not ready. Please try generating the PDF first.");
+      return;
+    }
+
+    try {
+      setIsSharing(true);
+      console.log("Starting share process...");
+
+      // Check if Web Share API is available and supports files
+      if (navigator.share && navigator.canShare) {
+        const fileName = `quotation_${quotationId.replace("WIP_", "")}.pdf`;
+        const file = new File([currentPdfBlob], fileName, { type: "application/pdf" });
+
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              title: `Quotation ${quotationId.replace("WIP_", "")}`,
+              text: `Please find attached the quotation for ${quotation.customer.name}`,
+              files: [file],
+            });
+            console.log("File shared successfully via Web Share API");
+            return;
+          } catch (shareError) {
+            console.log(
+              "Web Share API failed, falling back to WhatsApp:",
+              shareError
+            );
+          }
+        }
+      }
+
+      // Fallback to WhatsApp sharing
+      const customerPhone =
+        quotation.customer.whatsapp_number || quotation.customer.phone_number;
+      if (!customerPhone) {
+        throw new Error(
+          "Customer phone number not found. Please add a phone number to the customer profile."
+        );
+      }
+
+      const cleanPhone = customerPhone.replace(/\D/g, "");
+      if (cleanPhone.length < 10) {
+        throw new Error("Invalid phone number. Must be at least 10 digits.");
+      }
+
+      const formData = new FormData();
+      const file = new File(
+        [currentPdfBlob],
+        `quotation_${quotationId.replace("WIP_", "")}.pdf`,
+        { type: "application/pdf" }
+      );
+      formData.append("file", file);
+      formData.append("phone_number", cleanPhone);
+
+      console.log("Uploading PDF for WhatsApp sharing:", {
+        fileName: file.name,
+        fileSize: file.size,
+        phoneNumber: cleanPhone ? `***${cleanPhone.slice(-4)}` : "none",
+      });
+
+      const uploadResponse = await axiosInstance.post(
+        "/upload-quotation",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          timeout: 30000,
+        }
+      );
+
+      console.log("Upload response:", uploadResponse.data);
+
+      if (uploadResponse.data.message !== "File uploaded successfully!") {
+        throw new Error(uploadResponse.data.error || "Failed to upload PDF.");
+      }
+
+      alert("Quotation shared successfully via WhatsApp!");
+    } catch (error) {
+      console.error("Error sharing quotation:", error);
+      let errorMessage = "Failed to share the quotation. ";
+      if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
+        errorMessage +=
+          "The operation timed out. Please check your internet connection.";
+      } else if (error.message.includes("No file uploaded")) {
+        errorMessage += "No PDF file was uploaded. Please regenerate the PDF.";
+      } else if (error.message.includes("Phone number is required")) {
+        errorMessage += "Please provide a valid customer phone number.";
+      } else if (error.message.includes("Invalid phone number")) {
+        errorMessage +=
+          "The phone number is invalid. Please check and try again.";
+      } else if (error.response) {
+        errorMessage +=
+          error.response.data?.error ||
+          `Server error: ${error.response.status}`;
+      } else {
+        errorMessage += error.message;
+      }
+      alert(errorMessage);
+    } finally {
+      setIsSharing(false);
+    }
+  }, [quotationId, quotation, pdfBlob, isGeneratingPdf, handleGeneratePDF]);
 
   if (isLoading) {
     return (
@@ -337,7 +535,57 @@ const Preview = () => {
         <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-gray-700">Actions</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDownload}
+                disabled={isDownloading}
+                className="px-3 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors inline-flex items-center justify-center text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDownloading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-1"></div>
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 mr-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
+                    </svg>
+                    Download
+                  </>
+                )}
+              </button>
+            </div>
           </div>
+
+          {isDownloading && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-600 mr-2"></div>
+                <span className="text-blue-700 text-sm">
+                  Preparing download... Please wait.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {pdfError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-red-700 text-sm">{pdfError}</p>
+            </div>
+          )}
+
           <div className="flex gap-2 justify-center">
             <button
               onClick={handleEdit}
@@ -358,6 +606,31 @@ const Preview = () => {
                 />
               </svg>
               Edit
+            </button>
+            <button
+              onClick={handleShare}
+              disabled={isSharing}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSharing ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.68 3 3 0 00-5.367 2.68zm0 9.316a3 3 0 105.368 2.68 3 3 0 00-5.368-2.68z"
+                  />
+                </svg>
+              )}
+              {isSharing ? "Sharing..." : "Share via WhatsApp"}
             </button>
           </div>
         </div>
