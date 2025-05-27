@@ -96,7 +96,7 @@ const Home = () => {
   // );
 
   return (
-    <div className="min-h-screen bg-white p-4">
+    <div className="min-h-screen bg-white p-4 mt-12">
       <div className="max-w-md mx-auto">
         <button
           onClick={handleQuotationIDGeneration}

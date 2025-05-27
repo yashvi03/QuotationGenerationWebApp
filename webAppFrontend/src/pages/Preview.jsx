@@ -12,20 +12,16 @@ const Preview = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const navigate = useNavigate();
   const [pdfBlob, setPdfBlob] = useState(null);
   const [pdfUrl, setPdfUrl] = useState(null);
   const [pdfError, setPdfError] = useState(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [showPdfViewer, setShowPdfViewer] = useState(false);
-  const [pdfScale, setPdfScale] = useState(1);
+  const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams();
   const pdfGeneratedRef = useRef(false);
-  const pdfViewerRef = useRef(null);
 
   // Scroll to top function
   const scrollToTop = useCallback(() => {
@@ -56,39 +52,6 @@ const Preview = () => {
       }, 100);
     }
   }, [quotation, scrollToTop]);
-
-  // Scroll to top when PDF is generated
-  useEffect(() => {
-    if (pdfUrl && !isGeneratingPdf) {
-      setTimeout(() => {
-        scrollToTop();
-      }, 200);
-    }
-  }, [pdfUrl, isGeneratingPdf, scrollToTop]);
-
-  // Mobile detection effect
-  useEffect(() => {
-    const checkMobile = () => {
-      const userAgent = navigator.userAgent.toLowerCase();
-      const mobileKeywords = [
-        "mobile",
-        "android",
-        "iphone",
-        "ipad",
-        "ipod",
-        "blackberry",
-        "windows phone",
-      ];
-      const isMobileDevice =
-        mobileKeywords.some((keyword) => userAgent.includes(keyword)) ||
-        window.innerWidth <= 768;
-      setIsMobile(isMobileDevice);
-    };
-
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   const getQuotationId = () => {
     if (id) return id;
@@ -250,33 +213,6 @@ const Preview = () => {
     fetchQuotation();
   }, [quotationId, scrollToTop]);
 
-  useEffect(() => {
-    if (
-      isConfirmed &&
-      quotation &&
-      quotation.cards?.length &&
-      quotation.customer &&
-      !pdfGeneratedRef.current &&
-      !quotationId.startsWith("WIP_")
-    ) {
-      pdfGeneratedRef.current = true;
-      const timer = setTimeout(() => {
-        console.log("Triggering PDF generation for quotation:", quotationId);
-        handleGeneratePDF(quotationId);
-      }, 500);
-      return () => clearTimeout(timer);
-    } else {
-      console.log("Skipping PDF generation", {
-        isConfirmed,
-        hasQuotation: !!quotation,
-        hasCards: !!quotation?.cards?.length,
-        hasCustomer: !!quotation?.customer,
-        pdfGenerated: pdfGeneratedRef.current,
-        isWip: quotationId.startsWith("WIP_"),
-      });
-    }
-  }, [isConfirmed, quotation, quotationId, handleGeneratePDF]);
-
   const getMarginForItem = (mcName) => {
     if (!quotation?.margins || !mcName) return 0;
     const marginObj = quotation.margins.find(
@@ -300,40 +236,6 @@ const Preview = () => {
   const handleSaveAndExit = useCallback(() => {
     navigate("/");
   }, [navigate]);
-
-  const handleDownload = useCallback(async () => {
-    if (!pdfUrl || !pdfBlob) {
-      console.error("Cannot download: PDF URL or blob not available");
-      alert("PDF not ready. Please try regenerating the PDF.");
-      return;
-    }
-
-    try {
-      setIsDownloading(true);
-      console.log("Starting download...");
-
-      const link = document.createElement("a");
-      link.href = pdfUrl;
-      link.setAttribute(
-        "download",
-        `quotation_${quotationId.replace("WIP_", "")}.pdf`
-      );
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      console.log("PDF download initiated");
-
-      setTimeout(() => {
-        setIsDownloading(false);
-      }, 2000);
-    } catch (err) {
-      console.error("Download failed:", err);
-      setIsDownloading(false);
-      alert("Download failed. Please try again.");
-    }
-  }, [pdfUrl, pdfBlob, quotationId]);
 
   const handleConfirmAction = useCallback(async () => {
     if (!quotation) return;
@@ -367,7 +269,6 @@ const Preview = () => {
       }
       setQuotation(quotationResponse.data);
 
-      pdfGeneratedRef.current = false;
       setIsModalOpen(false);
       setIsConfirmed(true);
       localStorage.setItem("quotationId", confirmedQuotationId);
@@ -395,153 +296,6 @@ const Preview = () => {
     localStorage.setItem("quotationId", response.data.quotation_id);
   }, [navigate, quotation]);
 
-  const handleShare = useCallback(async () => {
-    if (!quotationId || !quotation || !pdfBlob) {
-      console.error("Cannot share: missing required data", {
-        hasQuotationId: !!quotationId,
-        hasQuotation: !!quotation,
-        hasPdfBlob: !!pdfBlob,
-      });
-      alert("PDF not ready. Please try generating the PDF first.");
-      return;
-    }
-
-    try {
-      setIsSharing(true);
-      console.log("Starting share process...");
-
-      // Check if Web Share API is available and supports files
-      if (navigator.share && navigator.canShare) {
-        const fileName = `quotation_${quotationId.replace("WIP_", "")}.pdf`;
-        const file = new File([pdfBlob], fileName, { type: "application/pdf" });
-
-        if (navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              title: `Quotation ${quotationId.replace("WIP_", "")}`,
-              text: `Please find attached the quotation for ${quotation.customer.name}`,
-              files: [file],
-            });
-            console.log("File shared successfully via Web Share API");
-            return;
-          } catch (shareError) {
-            console.log(
-              "Web Share API failed, falling back to WhatsApp:",
-              shareError
-            );
-          }
-        }
-      }
-
-      // Fallback to WhatsApp sharing
-      const customerPhone =
-        quotation.customer.whatsapp_number || quotation.customer.phone_number;
-      if (!customerPhone) {
-        throw new Error(
-          "Customer phone number not found. Please add a phone number to the customer profile."
-        );
-      }
-
-      const cleanPhone = customerPhone.replace(/\D/g, "");
-      if (cleanPhone.length < 10) {
-        throw new Error("Invalid phone number. Must be at least 10 digits.");
-      }
-
-      const formData = new FormData();
-      const file = new File(
-        [pdfBlob],
-        `quotation_${quotationId.replace("WIP_", "")}.pdf`,
-        { type: "application/pdf" }
-      );
-      formData.append("file", file);
-      formData.append("phone_number", cleanPhone);
-
-      console.log("Uploading PDF for WhatsApp sharing:", {
-        fileName: file.name,
-        fileSize: file.size,
-        phoneNumber: cleanPhone ? `***${cleanPhone.slice(-4)}` : "none",
-      });
-
-      const uploadResponse = await axiosInstance.post(
-        "/upload-quotation",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          timeout: 30000,
-        }
-      );
-
-      console.log("Upload response:", uploadResponse.data);
-
-      if (uploadResponse.data.message !== "File uploaded successfully!") {
-        throw new Error(uploadResponse.data.error || "Failed to upload PDF.");
-      }
-
-      alert("Quotation shared successfully via WhatsApp!");
-    } catch (error) {
-      console.error("Error sharing quotation:", error);
-      let errorMessage = "Failed to share the quotation. ";
-      if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
-        errorMessage +=
-          "The operation timed out. Please check your internet connection.";
-      } else if (error.message.includes("No file uploaded")) {
-        errorMessage += "No PDF file was uploaded. Please regenerate the PDF.";
-      } else if (error.message.includes("Phone number is required")) {
-        errorMessage += "Please provide a valid customer phone number.";
-      } else if (error.message.includes("Invalid phone number")) {
-        errorMessage +=
-          "The phone number is invalid. Please check and try again.";
-      } else if (error.response) {
-        errorMessage +=
-          error.response.data?.error ||
-          `Server error: ${error.response.status}`;
-      } else {
-        errorMessage += error.message;
-      }
-      alert(errorMessage);
-    } finally {
-      setIsSharing(false);
-    }
-  }, [quotationId, quotation, pdfBlob]);
-
-  const handleRegeneratePDF = () => {
-    if (quotationId) {
-      pdfGeneratedRef.current = false;
-      handleGeneratePDF(quotationId);
-    }
-  };
-
-  // Mobile PDF view handler - now opens in the same app
-  const handleMobilePdfView = () => {
-    if (pdfUrl) {
-      setShowPdfViewer(true);
-      // Scroll to top when opening PDF viewer
-      setTimeout(() => scrollToTop(), 100);
-    }
-  };
-
-  const handleClosePdfViewer = () => {
-    setShowPdfViewer(false);
-    setPdfScale(1);
-    // Scroll to top when closing PDF viewer
-    setTimeout(() => scrollToTop(), 100);
-  };
-
-  // PDF zoom handlers
-  const handleZoomIn = () => {
-    setPdfScale((prev) => Math.min(prev + 0.25, 3));
-  };
-
-  const handleZoomOut = () => {
-    setPdfScale((prev) => Math.max(prev - 0.25, 0.5));
-  };
-
-  const handleResetZoom = () => {
-    setPdfScale(1);
-  };
-
   if (isLoading) {
     return (
       <div className="p-4 sm:p-6 text-gray-600 flex justify-center items-center min-h-screen">
@@ -555,187 +309,6 @@ const Preview = () => {
 
   if (error) {
     return <div className="p-4 sm:p-6 text-red-500">Error: {error}</div>;
-  }
-
-  // Mobile PDF Viewer Modal - Fixed to stay within app
-  if (showPdfViewer && isMobile && pdfUrl) {
-    return (
-      <div className="fixed inset-0 bg-white z-50 flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 bg-orange-600 text-white shadow-md">
-          <h2 className="text-lg font-semibold">PDF Viewer</h2>
-          <button
-            onClick={handleClosePdfViewer}
-            className="p-2 hover:bg-orange-700 rounded-md transition-colors"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Zoom Controls */}
-        <div className="flex items-center justify-center p-2 bg-gray-100 border-b gap-2">
-          <button
-            onClick={handleZoomOut}
-            className="p-2 bg-white border rounded-md hover:bg-gray-50 transition-colors"
-            disabled={pdfScale <= 0.5}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M20 12H4"
-              />
-            </svg>
-          </button>
-          <span className="px-3 py-1 bg-white border rounded-md text-sm font-medium min-w-16 text-center">
-            {Math.round(pdfScale * 100)}%
-          </span>
-          <button
-            onClick={handleZoomIn}
-            className="p-2 bg-white border rounded-md hover:bg-gray-50 transition-colors"
-            disabled={pdfScale >= 3}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-          </button>
-          <button
-            onClick={handleResetZoom}
-            className="px-3 py-1 bg-white border rounded-md hover:bg-gray-50 transition-colors text-sm"
-          >
-            Reset
-          </button>
-        </div>
-
-        {/* PDF Content */}
-        <div className="flex-1 overflow-auto bg-gray-200 p-2">
-          <div className="flex justify-center">
-            <div
-              className="bg-white shadow-lg"
-              style={{
-                transform: `scale(${pdfScale})`,
-                transformOrigin: "top center",
-                marginBottom: pdfScale > 1 ? `${(pdfScale - 1) * 100}%` : "0",
-              }}
-            >
-              <iframe
-                ref={pdfViewerRef}
-                src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                width="100%"
-                height="800px"
-                style={{
-                  border: "none",
-                  display: "block",
-                  minWidth: "350px",
-                }}
-                title="PDF Viewer"
-                onLoad={() => {
-                  console.log("PDF iframe loaded successfully");
-                }}
-                onError={(e) => {
-                  console.error("PDF iframe load error:", e);
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Action Bar */}
-        <div className="p-4 bg-gray-50 border-t flex gap-2">
-          <button
-            onClick={handleDownload}
-            disabled={isDownloading}
-            className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center justify-center"
-          >
-            {isDownloading ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-                Downloading...
-              </>
-            ) : (
-              <>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                  />
-                </svg>
-                Download
-              </>
-            )}
-          </button>
-          <button
-            onClick={handleShare}
-            disabled={isSharing}
-            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center"
-          >
-            {isSharing ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-                Sharing...
-              </>
-            ) : (
-              <>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.68 3 3 0 00-5.367 2.68zm0 9.316a3 3 0 105.368 2.68 3 3 0 00-5.368-2.68z"
-                  />
-                </svg>
-                Share
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -763,151 +336,9 @@ const Preview = () => {
       {isConfirmed && (
         <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-700">PDF Preview</h2>
-            <div className="flex gap-2">
-              <button
-                onClick={handleDownload}
-                disabled={isDownloading}
-                className="px-3 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors inline-flex items-center justify-center text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isDownloading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-1"></div>
-                    Downloading...
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 mr-1"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                      />
-                    </svg>
-                    Download
-                  </>
-                )}
-              </button>
-            </div>
+            <h2 className="text-xl font-semibold text-gray-700">Actions</h2>
           </div>
-
-          {isDownloading && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-600 mr-2"></div>
-                <span className="text-blue-700 text-sm">
-                  Preparing download... Please wait.
-                </span>
-              </div>
-            </div>
-          )}
-
-          <div
-            className="pdf-container border border-gray-300 rounded-lg overflow-hidden"
-            style={{ minHeight: "500px", width: "100%" }}
-          >
-            {pdfError ? (
-              <div className="text-center py-10 text-red-500">
-                <p>{pdfError}</p>
-                <button
-                  onClick={handleRegeneratePDF}
-                  className="mt-4 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
-                >
-                  Regenerate PDF
-                </button>
-              </div>
-            ) : pdfUrl ? (
-              <>
-                {isMobile ? (
-                  // Mobile view - show button to open PDF in same app
-                  <div className="text-center py-20 bg-gray-50">
-                    <div className="mb-4">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-16 w-16 mx-auto text-orange-600 mb-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                      PDF Ready to View
-                    </h3>
-                    <p className="text-gray-600 mb-6 text-sm">
-                      Tap the button below to view your PDF
-                    </p>
-                    <button
-                      onClick={handleMobilePdfView}
-                      className="px-6 py-3 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors inline-flex items-center justify-center font-medium"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5 mr-2"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
-                      </svg>
-                      View PDF
-                    </button>
-                  </div>
-                ) : (
-                  // Desktop view - embed PDF
-                  <object
-                    data={pdfUrl}
-                    type="application/pdf"
-                    width="100%"
-                    height="600px"
-                    className="rounded-lg"
-                  >
-                    <p className="text-red-500 text-center py-4">
-                      Your browser cannot display the PDF.{" "}
-                      <a href={pdfUrl} download>
-                        Download it instead
-                      </a>
-                      .
-                    </p>
-                  </object>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-10">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-600 mx-auto"></div>
-                <p className="mt-2">
-                  {isGeneratingPdf
-                    ? "Generating PDF..."
-                    : "Preparing PDF viewer..."}
-                </p>
-              </div>
-            )}
-          </div>
-          <div className="mt-4 flex gap-2 justify-center">
+          <div className="flex gap-2 justify-center">
             <button
               onClick={handleEdit}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-flex items-center justify-center"
@@ -927,31 +358,6 @@ const Preview = () => {
                 />
               </svg>
               Edit
-            </button>
-            <button
-              onClick={handleShare}
-              disabled={isSharing || !pdfBlob}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSharing ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-              ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.68 3 3 0 00-5.367 2.68zm0 9.316a3 3 0 105.368 2.68 3 3 0 00-5.368-2.68z"
-                  />
-                </svg>
-              )}
-              {isSharing ? "Sharing..." : "Share via WhatsApp"}
             </button>
           </div>
         </div>
