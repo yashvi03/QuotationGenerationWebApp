@@ -479,7 +479,7 @@ const Preview = () => {
         throw new Error(uploadResponse.data.error || "Failed to upload PDF.");
       }
 
-      alert("Quotation shared successfully via WhatsApp!");
+      // alert("Quotation shared successfully via WhatsApp!");
     } catch (error) {
       console.error("Error sharing quotation:", error);
       let errorMessage = "Failed to share the quotation. ";
