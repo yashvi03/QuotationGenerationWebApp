@@ -9,6 +9,7 @@ import {
 const AddItems = ({ edit, isEditMode, onItemAdded }) => {
   // State for controlling the current step in the selection process
   const [nextStep, setNextStep] = useState("type");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // State for storing available options for each step
   const [options, setOptions] = useState({
@@ -233,20 +234,20 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
       const existingArticleIndex = selectedOptions.article.findIndex(
         (item) => item.value === value
       );
-      
+
       // If article is already selected, remove it (deselect)
       if (existingArticleIndex >= 0) {
         const updatedArticles = selectedOptions.article.filter(
           (item) => item.value !== value
         );
-        
+
         // Update active article if needed
         if (activeArticle === value) {
           setActiveArticle(
             updatedArticles.length > 0 ? updatedArticles[0].value : null
           );
         }
-        
+
         setSelectedOptions((prev) => ({
           ...prev,
           article: updatedArticles,
@@ -262,7 +263,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
             return;
           }
         }
-        
+
         // Add new article
         const updatedArticles = [
           ...selectedOptions.article,
@@ -278,9 +279,9 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
             cat1Fetched: false,
           },
         ];
-        
+
         setActiveArticle(value);
-        
+
         setSelectedOptions((prev) => ({
           ...prev,
           article: updatedArticles,
@@ -445,27 +446,32 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
 
   // Handle form submission
   const handleSubmit = async () => {
-    if (!localStorage.getItem("quotationId").includes("WIP"))
-      handleQuotationIDGeneration();
-    const payload = {
-      quotation_id: localStorage.getItem("quotationId"),
-      type: selectedOptions.type,
-      size: selectedOptions.size,
-      items: selectedOptions.article.map((item) => ({
-        item_id: item.item_id,
-        name: item.value,
-        quantity: item.qty,
-        cat1: item.cat1,
-        cat2: item.cat2,
-        cat3: item.cat3,
-      })),
-    };
+    // Prevent multiple submissions
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
 
     try {
+      if (!localStorage.getItem("quotationId").includes("WIP"))
+        await handleQuotationIDGeneration();
+
+      const payload = {
+        quotation_id: localStorage.getItem("quotationId"),
+        type: selectedOptions.type,
+        size: selectedOptions.size,
+        items: selectedOptions.article.map((item) => ({
+          item_id: item.item_id,
+          name: item.value,
+          quantity: item.qty,
+          cat1: item.cat1,
+          cat2: item.cat2,
+          cat3: item.cat3,
+        })),
+      };
+
       let response;
       if (isEditMode && edit?.card_id) {
         response = await updateCard(edit.card_id, payload);
-        // alert("Card updated successfully");
       } else {
         response = await addCard(payload);
         const quotationData = {
@@ -473,7 +479,6 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
           card_id: response.data.card.card_id,
         };
         await addCardToQuotation(quotationData);
-        // alert("Card added successfully");
       }
 
       // Reset form state
@@ -491,6 +496,8 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
       alert(
         `Error ${isEditMode ? "updating" : "adding"} card: ${error.message}`
       );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -827,14 +834,20 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
       <div className="mt-8">
         <button
           className={`px-6 py-2 rounded font-medium ${
-            isFormValid
+            isFormValid && !isSubmitting
               ? "bg-orange-400 text-white hover:bg-orange-500"
               : "bg-gray-300 text-gray-500 cursor-not-allowed"
           }`}
-          disabled={!isFormValid}
+          disabled={!isFormValid || isSubmitting}
           onClick={handleSubmit}
         >
-          {isEditMode ? "Update" : "Save and Next"}
+          {isSubmitting
+            ? isEditMode
+              ? "Updating..."
+              : "Saving..."
+            : isEditMode
+            ? "Update"
+            : "Save and Next"}
         </button>
 
         {selectedOptions.article.length > 0 && !isFormValid && (
