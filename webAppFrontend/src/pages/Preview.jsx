@@ -687,7 +687,7 @@ const Preview = () => {
                 </button>
                 <button
                   onClick={handleShare}
-                  disabled={isSharing || !pdfBlob}
+                  disabled={isSharing}
                   className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSharing ? (
