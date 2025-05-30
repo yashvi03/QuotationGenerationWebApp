@@ -26,13 +26,7 @@ const Layout = ({ title = "Quotation", homeUrl = "/" }) => {
 
   return (
     <>
-      {/* Google Fonts */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="true" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Glegoo:wght@700&family=Kalam:wght@300&family=Khula:wght@600&family=Laila:wght@400;700&family=Martel:wght@400;900&family=Raleway&display=swap"
-        rel="stylesheet"
-      />
+     
 
       <div className="min-h-screen" style={{ backgroundColor: 'whitesmoke', fontFamily: "'Raleway', sans-serif" }}>
         {/* Loader */}
