@@ -1,9 +1,7 @@
-import { useState } from "react";
 import Logo from "../assets/logo2.png";
 import PuranmalSons from "../assets/name3.png";
 
 const Layout = ({ homeUrl = "https://pspla-pro.herokuapp.com" }) => {
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleNavClick = (href, external = false) => {
     if (external) {
@@ -11,20 +9,17 @@ const Layout = ({ homeUrl = "https://pspla-pro.herokuapp.com" }) => {
       return;
     }
 
-    setIsLoading(true);
-    // Add small delay to show loader
-    setTimeout(() => {
+    if (href.startsWith("http")) {
       window.location.href = href;
-    }, 100);
+      return;
+    }
   };
 
   return (
     <>
       <div>
         {/* Header */}
-        <header
-          className="w-full shadow-sm"
-        >
+        <header className="w-full shadow-sm">
           <nav className="flex items-center justify-between px-6 py-4">
             {/* Logo and Title Section */}
             <div className="flex items-center space-x-4">
@@ -38,7 +33,7 @@ const Layout = ({ homeUrl = "https://pspla-pro.herokuapp.com" }) => {
                   className="h-10 w-10"
                 />
                 <div className="flex flex-col">
-                  <img src={PuranmalSons} alt="Puranmal Sons" className="h-4" />
+                  <img src={PuranmalSons} alt="Puranmal Sons" className="h-5" />
                 </div>
               </button>
             </div>
