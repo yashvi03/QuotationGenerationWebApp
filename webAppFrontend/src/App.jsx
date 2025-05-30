@@ -3,12 +3,15 @@ import AddItem from "./components/AddItems";
 import Home from "./pages/Home";
 import FormPage from "./pages/FormPage";
 import Preview from "./pages/Preview";
+import Layout from "./components/Layout"; // Import your header component
 import "./App.css";
 
 function App() {
   return (
     <Router>
-      {/* {% extends 'layout.html'%} */}
+      {/* Header appears on all pages */}
+      <Layout title="Quotation" homeUrl="/" />
+
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/home" element={<FormPage />} />
