@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Logo from "../assets/logo2.png";
 import PuranmalSons from "../assets/name3.png";
 
-const Layout = ({ homeUrl = "/" }) => {
+const Layout = ({ homeUrl = "https://pspla-pro.herokuapp.com" }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleNavClick = (href, external = false) => {
