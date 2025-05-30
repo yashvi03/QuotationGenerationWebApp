@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import Logo from "../assets/logo2";
-import PuranmalSons from "../assets/name3";
+import Logo from "../assets/logo2.png"
+import PuranmalSons from "../assets/name3.png";
 
 const Layout = ({ title = "Quotation", homeUrl = "/" }) => {
   const [isLoading, setIsLoading] = useState(false);
