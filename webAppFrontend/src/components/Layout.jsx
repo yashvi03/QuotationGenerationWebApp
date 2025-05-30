@@ -30,7 +30,7 @@ const Layout = ({ homeUrl = "https://pspla-pro.herokuapp.com" }) => {
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => handleNavClick(homeUrl)}
-                className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
+                className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
               >
                 <img
                   src={Logo}
@@ -38,7 +38,7 @@ const Layout = ({ homeUrl = "https://pspla-pro.herokuapp.com" }) => {
                   className="h-10 w-10"
                 />
                 <div className="flex flex-col">
-                  <img src={PuranmalSons} alt="Puranmal Sons" className="h-6" />
+                  <img src={PuranmalSons} alt="Puranmal Sons" className="h-4" />
                 </div>
               </button>
             </div>
