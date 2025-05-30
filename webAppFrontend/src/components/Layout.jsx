@@ -2,13 +2,8 @@ import { useState, useEffect } from "react";
 import Logo from "../assets/logo2.png";
 import PuranmalSons from "../assets/name3.png";
 
-const Layout = ({ title = "Quotation", homeUrl = "/" }) => {
+const Layout = ({ homeUrl = "/" }) => {
   const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    // Set page title
-    document.title = `Puranmal Sons : ${title}`;
-  }, [title]);
 
   const handleNavClick = (href, external = false) => {
     if (external) {
@@ -29,7 +24,6 @@ const Layout = ({ title = "Quotation", homeUrl = "/" }) => {
         {/* Header */}
         <header
           className="w-full shadow-sm"
-          style={{ backgroundColor: "#343a40" }}
         >
           <nav className="flex items-center justify-between px-6 py-4">
             {/* Logo and Title Section */}
@@ -45,7 +39,6 @@ const Layout = ({ title = "Quotation", homeUrl = "/" }) => {
                 />
                 <div className="flex flex-col">
                   <img src={PuranmalSons} alt="Puranmal Sons" className="h-6" />
-                  <span className="text-gray-300 text-sm mt-1">{title}</span>
                 </div>
               </button>
             </div>
@@ -54,7 +47,7 @@ const Layout = ({ title = "Quotation", homeUrl = "/" }) => {
             <div className="flex items-center">
               <button
                 onClick={() => handleNavClick(homeUrl)}
-                className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+                className="flex items-center space-x-2 bg-gray-200 hover:bg-gray-300 text-gray-400 px-4 py-2 rounded-lg transition-colors"
               >
                 <svg
                   width={18}
