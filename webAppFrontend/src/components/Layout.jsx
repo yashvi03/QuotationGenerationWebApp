@@ -1,9 +1,9 @@
 import Logo from "../assets/logo2.png";
 import PuranmalSons from "../assets/name3.png";
 
-const Layout = ({ homeUrl = "https://pspla-pro.herokuapp.com/" }) => {
-  const handleNavClick = (href) => {
-    window.open(href, "_blank");
+const Layout = () => {
+  const handleNavClick = () => {
+    window.open('https://pspla-pro.herokuapp.com', "_blank");
     return;
   };
 
@@ -16,7 +16,7 @@ const Layout = ({ homeUrl = "https://pspla-pro.herokuapp.com/" }) => {
             {/* Logo and Title Section */}
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => handleNavClick(homeUrl)}
+                onClick={() => handleNavClick()}
                 className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
               >
                 <img
@@ -33,7 +33,7 @@ const Layout = ({ homeUrl = "https://pspla-pro.herokuapp.com/" }) => {
             {/* Right Side - Home Button */}
             <div className="flex items-center">
               <button
-                onClick={() => handleNavClick(homeUrl)}
+                onClick={() => handleNavClick()}
                 className="flex items-center  bg-gray-100 text-gray-400 p-2 rounded-lg"
               >
                 <svg
