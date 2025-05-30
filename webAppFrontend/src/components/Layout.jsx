@@ -47,7 +47,7 @@ const Layout = ({ homeUrl = "/" }) => {
             <div className="flex items-center">
               <button
                 onClick={() => handleNavClick(homeUrl)}
-                className="flex items-center space-x-2 bg-gray-200 hover:bg-gray-300 text-gray-400 px-4 py-2 rounded-lg transition-colors"
+                className="flex items-center  bg-gray-100 text-gray-400 p-2 rounded-lg"
               >
                 <svg
                   width={18}

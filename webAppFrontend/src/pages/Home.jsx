@@ -96,11 +96,11 @@ const Home = () => {
   // );
 
   return (
-    <div className="min-h-screen bg-white p-4">
+    <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-md mx-auto">
         <button
           onClick={handleQuotationIDGeneration}
-          className="w-full py-3 bg-orange-400 rounded-md mb-4 font-bold text-white"
+          className="w-full py-3 bg-orange-400 rounded-md mb-4 font-bold text-white mt-12"
           // disabled={isLoading}
         >
           + New Quotation
