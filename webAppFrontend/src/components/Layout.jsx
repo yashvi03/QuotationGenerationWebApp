@@ -11,8 +11,6 @@ const Layout = () => {
           <div className="flex items-center space-x-4">
             <a
               href="https://pspla-pro.herokuapp.com"
-              target="_blank"
-              rel="noopener noreferrer"
               className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
             >
               <img src={Logo} alt="Puranmal Sons Logo" className="h-10 w-10" />
