@@ -1,18 +1,10 @@
 import Logo from "../assets/logo2.png";
 import PuranmalSons from "../assets/name3.png";
 
-const Layout = ({ homeUrl = "https://pspla-pro.herokuapp.com" }) => {
-
-  const handleNavClick = (href, external = false) => {
-    if (external) {
-      window.open(href, "_blank");
-      return;
-    }
-
-    if (href.startsWith("http")) {
-      window.location.href = href;
-      return;
-    }
+const Layout = ({ homeUrl = "https://pspla-pro.herokuapp.com/" }) => {
+  const handleNavClick = (href) => {
+    window.open(href, "_blank");
+    return;
   };
 
   return (
