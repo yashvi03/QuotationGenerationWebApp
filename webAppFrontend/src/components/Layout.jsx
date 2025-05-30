@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import Logo from "../assets/logo2.png"
+import Logo from "../assets/logo2.png";
 import PuranmalSons from "../assets/name3.png";
 
 const Layout = ({ title = "Quotation", homeUrl = "/" }) => {
@@ -25,30 +25,7 @@ const Layout = ({ title = "Quotation", homeUrl = "/" }) => {
 
   return (
     <>
-      <div
-        className="min-h-screen"
-        style={{
-          backgroundColor: "whitesmoke",
-          fontFamily: "'Raleway', sans-serif",
-        }}
-      >
-        {/* Loader */}
-        {isLoading && (
-          <div
-            className="fixed inset-0 flex items-center justify-center z-50"
-            style={{ backgroundColor: "#242f3f" }}
-          >
-            <div
-              className="relative border-4 border-white animate-spin"
-              style={{
-                width: "30px",
-                height: "30px",
-                borderRadius: "50%",
-              }}
-            />
-          </div>
-        )}
-
+      <div>
         {/* Header */}
         <header
           className="w-full shadow-sm"
