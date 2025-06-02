@@ -118,12 +118,12 @@ const Preview = () => {
         return null;
       }
 
-      const timeoutDuration = 10000; // 10 seconds timeout
+      const timeoutDuration = 30000; // Increased to 30 seconds
       const timeoutId = setTimeout(() => {
         if (isGeneratingPdf) {
           setIsGeneratingPdf(false);
           setPdfError("PDF generation timed out. Please try again.");
-          console.error("PDF generation timed out after 10 seconds");
+          console.error("PDF generation timed out after 30 seconds");
         }
       }, timeoutDuration);
 
@@ -302,11 +302,29 @@ const Preview = () => {
   }, [navigate]);
 
   const handleDownload = useCallback(async () => {
-    // if (!pdfUrl || !pdfBlob) {
-    //   console.error("Cannot download: PDF URL or blob not available");
-    //   alert("PDF not ready. Please try regenerating the PDF.");
-    //   return;
-    // }
+    // Generate PDF if not available
+    if (!pdfUrl || !pdfBlob) {
+      console.log("PDF not available, generating PDF first...");
+      try {
+        setIsDownloading(true);
+        const generatedUrl = await handleGeneratePDF(quotationId);
+        if (!generatedUrl) {
+          alert("Failed to generate PDF. Please try again.");
+          setIsDownloading(false);
+          return;
+        }
+        // Wait a moment for state to update
+        setTimeout(() => {
+          handleDownload();
+        }, 1000);
+        return;
+      } catch (error) {
+        console.error("Error generating PDF for download:", error);
+        alert("Failed to generate PDF. Please try again.");
+        setIsDownloading(false);
+        return;
+      }
+    }
 
     try {
       setIsDownloading(true);
@@ -319,6 +337,7 @@ const Preview = () => {
         `quotation_${quotationId.replace("WIP_", "")}.pdf`
       );
 
+      // Make sure the link is added to the DOM
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -333,7 +352,7 @@ const Preview = () => {
       setIsDownloading(false);
       alert("Download failed. Please try again.");
     }
-  }, [pdfUrl, quotationId]);
+  }, [pdfUrl, pdfBlob, quotationId, handleGeneratePDF]);
 
   const handleConfirmAction = useCallback(async () => {
     if (!quotation) return;
@@ -396,15 +415,29 @@ const Preview = () => {
   }, [navigate, quotation]);
 
   const handleShare = useCallback(async () => {
-    // if (!quotationId || !quotation || !pdfBlob) {
-    //   console.error("Cannot share: missing required data", {
-    //     hasQuotationId: !!quotationId,
-    //     hasQuotation: !!quotation,
-    //     hasPdfBlob: !!pdfBlob,
-    //   });
-    //   alert("PDF not ready. Please try generating the PDF first.");
-    //   return;
-    // }
+    // Generate PDF if not available
+    if (!quotationId || !quotation || !pdfBlob) {
+      console.log("PDF not available, generating PDF first...");
+      try {
+        setIsSharing(true);
+        const generatedUrl = await handleGeneratePDF(quotationId);
+        if (!generatedUrl) {
+          alert("Failed to generate PDF. Please try again.");
+          setIsSharing(false);
+          return;
+        }
+        // Wait a moment for state to update
+        setTimeout(() => {
+          handleShare();
+        }, 1000);
+        return;
+      } catch (error) {
+        console.error("Error generating PDF for sharing:", error);
+        alert("Failed to generate PDF. Please try again.");
+        setIsSharing(false);
+        return;
+      }
+    }
 
     try {
       setIsSharing(true);
@@ -423,6 +456,7 @@ const Preview = () => {
               files: [file],
             });
             console.log("File shared successfully via Web Share API");
+            setIsSharing(false);
             return;
           } catch (shareError) {
             console.log(
@@ -433,7 +467,7 @@ const Preview = () => {
         }
       }
 
-      // Fallback to WhatsApp sharing
+      // Fallback to WhatsApp sharing via upload
       const customerPhone =
         quotation.customer.whatsapp_number || quotation.customer.phone_number;
       if (!customerPhone) {
@@ -469,7 +503,7 @@ const Preview = () => {
           headers: {
             "Content-Type": "multipart/form-data",
           },
-          timeout: 30000,
+          timeout: 30000, // 30 seconds timeout
         }
       );
 
@@ -479,7 +513,7 @@ const Preview = () => {
         throw new Error(uploadResponse.data.error || "Failed to upload PDF.");
       }
 
-      // alert("Quotation shared successfully via WhatsApp!");
+      alert("Quotation shared successfully via WhatsApp!");
     } catch (error) {
       console.error("Error sharing quotation:", error);
       let errorMessage = "Failed to share the quotation. ";
@@ -504,7 +538,15 @@ const Preview = () => {
     } finally {
       setIsSharing(false);
     }
-  }, [quotationId, quotation, pdfBlob]);
+  }, [quotationId, quotation, pdfBlob, handleGeneratePDF]);
+
+  // Show PDF error if exists
+  useEffect(() => {
+    if (pdfError) {
+      console.error("PDF Error:", pdfError);
+      // You might want to show this error to the user
+    }
+  }, [pdfError]);
 
   if (isLoading) {
     return (
@@ -523,6 +565,23 @@ const Preview = () => {
 
   return (
     <div className="p-4 sm:p-6 mx-auto bg-gray-100 min-h-screen">
+      {/* Show PDF error if exists */}
+      {pdfError && (
+        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          <p className="font-semibold">PDF Error:</p>
+          <p>{pdfError}</p>
+          <button
+            onClick={() => {
+              setPdfError(null);
+              handleGeneratePDF(quotationId);
+            }}
+            className="mt-2 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry PDF Generation
+          </button>
+        </div>
+      )}
+
       <div className="mb-6 bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200">
         <h1 className="text-2xl font-bold mb-6 text-orange-600 border-b pb-3">
           Quotation Preview
@@ -637,13 +696,13 @@ const Preview = () => {
               <div className="mt-4 flex gap-2 justify-center">
                 <button
                   onClick={handleDownload}
-                  disabled={isDownloading}
+                  disabled={isDownloading || isGeneratingPdf}
                   className="px-3 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors inline-flex items-center justify-center text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isDownloading ? (
+                  {isDownloading || isGeneratingPdf ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-1"></div>
-                      Downloading...
+                      {isGeneratingPdf ? "Generating..." : "Downloading..."}
                     </>
                   ) : (
                     <>
@@ -687,10 +746,10 @@ const Preview = () => {
                 </button>
                 <button
                   onClick={handleShare}
-                  disabled={isSharing}
+                  disabled={isSharing || isGeneratingPdf}
                   className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSharing ? (
+                  {isSharing || isGeneratingPdf ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
                   ) : (
                     <svg
@@ -708,7 +767,11 @@ const Preview = () => {
                       />
                     </svg>
                   )}
-                  {isSharing ? "Sharing..." : "Share"}
+                  {isSharing
+                    ? isGeneratingPdf
+                      ? "Generating..."
+                      : "Sharing..."
+                    : "Share"}
                 </button>
               </div>
             ) : (
