@@ -11,7 +11,7 @@ const Preview = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isConfirmed, setIsConfirmed] = useState(false);
+
   const navigate = useNavigate();
   const [pdfBlob, setPdfBlob] = useState(null);
   const [pdfUrl, setPdfUrl] = useState(null);
@@ -19,76 +19,19 @@ const Preview = () => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [showPdfViewer, setShowPdfViewer] = useState(false);
-  const [pdfScale, setPdfScale] = useState(1);
   const location = useLocation();
   const { id } = useParams();
   const pdfGeneratedRef = useRef(false);
-  const pdfViewerRef = useRef(null);
 
   // Scroll to top function
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
-    // Also try direct scroll in case smooth doesn't work
-    setTimeout(() => {
-      window.scrollTo(0, 0);
-    }, 100);
   }, []);
 
   // Scroll to top on component mount and route changes
   useEffect(() => {
     scrollToTop();
   }, [scrollToTop, id]);
-
-  // Scroll to top when loading state changes
-  useEffect(() => {
-    if (!isLoading) {
-      scrollToTop();
-    }
-  }, [isLoading, scrollToTop]);
-
-  // Scroll to top when quotation data is loaded
-  useEffect(() => {
-    if (quotation) {
-      setTimeout(() => {
-        scrollToTop();
-      }, 100);
-    }
-  }, [quotation, scrollToTop]);
-
-  // Scroll to top when PDF is generated
-  useEffect(() => {
-    if (pdfUrl && !isGeneratingPdf) {
-      setTimeout(() => {
-        scrollToTop();
-      }, 200);
-    }
-  }, [pdfUrl, isGeneratingPdf, scrollToTop]);
-
-  // Mobile detection effect
-  useEffect(() => {
-    const checkMobile = () => {
-      const userAgent = navigator.userAgent.toLowerCase();
-      const mobileKeywords = [
-        "mobile",
-        "android",
-        "iphone",
-        "ipad",
-        "ipod",
-        "blackberry",
-        "windows phone",
-      ];
-      const isMobileDevice =
-        mobileKeywords.some((keyword) => userAgent.includes(keyword)) ||
-        window.innerWidth <= 768;
-      setIsMobile(isMobileDevice);
-    };
-
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   const getQuotationId = () => {
     if (id) return id;
@@ -117,15 +60,6 @@ const Preview = () => {
         setPdfError("Cannot generate PDF: Missing quotation data");
         return null;
       }
-
-      const timeoutDuration = 30000; // Increased to 30 seconds
-      const timeoutId = setTimeout(() => {
-        if (isGeneratingPdf) {
-          setIsGeneratingPdf(false);
-          setPdfError("PDF generation timed out. Please try again.");
-          console.error("PDF generation timed out after 30 seconds");
-        }
-      }, timeoutDuration);
 
       try {
         setIsGeneratingPdf(true);
@@ -163,7 +97,7 @@ const Preview = () => {
           payload,
           {
             responseType: "blob",
-            timeout: timeoutDuration,
+            timeout: 30000,
           }
         );
 
@@ -190,16 +124,13 @@ const Preview = () => {
         console.log("PDF URL created:", url);
         setPdfUrl(url);
         setPdfError(null);
-        clearTimeout(timeoutId);
 
-        // Scroll to top after PDF is generated
-        setTimeout(() => scrollToTop(), 300);
+        scrollToTop();
 
         return url;
       } catch (error) {
         console.error("Error in PDF generation:", error);
         setPdfError(`Error generating PDF: ${error.message}`);
-        clearTimeout(timeoutId);
         return null;
       } finally {
         setIsGeneratingPdf(false);
@@ -233,12 +164,8 @@ const Preview = () => {
           throw new Error("Invalid quotation data: Missing cards or customer");
         }
         setQuotation(response.data);
-        if (!quotationId.startsWith("WIP_")) {
-          setIsConfirmed(true);
-        }
 
-        // Scroll to top after quotation is loaded
-        setTimeout(() => scrollToTop(), 100);
+        scrollToTop();
       } catch (error) {
         setError(error.message || "Error fetching quotation");
         console.error("Error fetching quotation:", error);
@@ -250,32 +177,19 @@ const Preview = () => {
     fetchQuotation();
   }, [quotationId, scrollToTop]);
 
+  // Generate PDF automatically for all quotations
   useEffect(() => {
     if (
-      isConfirmed &&
       quotation &&
       quotation.cards?.length &&
       quotation.customer &&
-      !pdfGeneratedRef.current &&
-      !quotationId.startsWith("WIP_")
+      !pdfGeneratedRef.current
     ) {
       pdfGeneratedRef.current = true;
-      const timer = setTimeout(() => {
-        console.log("Triggering PDF generation for quotation:", quotationId);
-        handleGeneratePDF(quotationId);
-      }, 500);
-      return () => clearTimeout(timer);
-    } else {
-      console.log("Skipping PDF generation", {
-        isConfirmed,
-        hasQuotation: !!quotation,
-        hasCards: !!quotation?.cards?.length,
-        hasCustomer: !!quotation?.customer,
-        pdfGenerated: pdfGeneratedRef.current,
-        isWip: quotationId.startsWith("WIP_"),
-      });
+      console.log("Triggering PDF generation for quotation:", quotationId);
+      handleGeneratePDF(quotationId);
     }
-  }, [isConfirmed, quotation, quotationId, handleGeneratePDF]);
+  }, [quotation, quotationId, handleGeneratePDF]);
 
   const getMarginForItem = (mcName) => {
     if (!quotation?.margins || !mcName) return 0;
@@ -302,55 +216,43 @@ const Preview = () => {
   }, [navigate]);
 
   const handleDownload = useCallback(async () => {
-    // Generate PDF if not available
-    if (!pdfUrl || !pdfBlob) {
-      console.log("PDF not available, generating PDF first...");
-      try {
-        setIsDownloading(true);
-        const generatedUrl = await handleGeneratePDF(quotationId);
-        if (!generatedUrl) {
-          alert("Failed to generate PDF. Please try again.");
-          setIsDownloading(false);
-          return;
-        }
-        // Wait a moment for state to update
-        setTimeout(() => {
-          handleDownload();
-        }, 1000);
-        return;
-      } catch (error) {
-        console.error("Error generating PDF for download:", error);
-        alert("Failed to generate PDF. Please try again.");
-        setIsDownloading(false);
-        return;
-      }
-    }
-
     try {
       setIsDownloading(true);
+      
+      // Generate PDF if not available
+      let currentPdfUrl = pdfUrl;
+      let currentPdfBlob = pdfBlob;
+      
+      if (!currentPdfUrl || !currentPdfBlob) {
+        console.log("PDF not available, generating PDF first...");
+        currentPdfUrl = await handleGeneratePDF(quotationId);
+        if (!currentPdfUrl) {
+          alert("Failed to generate PDF. Please try again.");
+          return;
+        }
+        // Get the updated blob from state
+        currentPdfBlob = pdfBlob;
+      }
+
       console.log("Starting download...");
 
       const link = document.createElement("a");
-      link.href = pdfUrl;
+      link.href = currentPdfUrl;
       link.setAttribute(
         "download",
         `quotation_${quotationId.replace("WIP_", "")}.pdf`
       );
 
-      // Make sure the link is added to the DOM
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
       console.log("PDF download initiated");
-
-      setTimeout(() => {
-        setIsDownloading(false);
-      }, 2000);
     } catch (err) {
       console.error("Download failed:", err);
-      setIsDownloading(false);
       alert("Download failed. Please try again.");
+    } finally {
+      setIsDownloading(false);
     }
   }, [pdfUrl, pdfBlob, quotationId, handleGeneratePDF]);
 
@@ -388,12 +290,10 @@ const Preview = () => {
 
       pdfGeneratedRef.current = false;
       setIsModalOpen(false);
-      setIsConfirmed(true);
       localStorage.setItem("quotationId", confirmedQuotationId);
       navigate(`/preview/${confirmedQuotationId}`, { replace: true });
 
-      // Scroll to top after confirmation
-      setTimeout(() => scrollToTop(), 100);
+      scrollToTop();
     } catch (error) {
       setError(error.message || "Error confirming quotation");
       console.error("Error:", error);
@@ -415,38 +315,28 @@ const Preview = () => {
   }, [navigate, quotation]);
 
   const handleShare = useCallback(async () => {
-    // Generate PDF if not available
-    if (!quotationId || !quotation || !pdfBlob) {
-      console.log("PDF not available, generating PDF first...");
-      try {
-        setIsSharing(true);
-        const generatedUrl = await handleGeneratePDF(quotationId);
-        if (!generatedUrl) {
-          alert("Failed to generate PDF. Please try again.");
-          setIsSharing(false);
-          return;
-        }
-        // Wait a moment for state to update
-        setTimeout(() => {
-          handleShare();
-        }, 1000);
-        return;
-      } catch (error) {
-        console.error("Error generating PDF for sharing:", error);
-        alert("Failed to generate PDF. Please try again.");
-        setIsSharing(false);
-        return;
-      }
-    }
-
     try {
       setIsSharing(true);
+      
+      // Generate PDF if not available
+      let currentPdfBlob = pdfBlob;
+      
+      if (!quotationId || !quotation || !currentPdfBlob) {
+        console.log("PDF not available, generating PDF first...");
+        await handleGeneratePDF(quotationId);
+        if (!pdfBlob) {
+          alert("Failed to generate PDF. Please try again.");
+          return;
+        }
+        currentPdfBlob = pdfBlob;
+      }
+
       console.log("Starting share process...");
 
       // Check if Web Share API is available and supports files
       if (navigator.share && navigator.canShare) {
         const fileName = `quotation_${quotationId.replace("WIP_", "")}.pdf`;
-        const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+        const file = new File([currentPdfBlob], fileName, { type: "application/pdf" });
 
         if (navigator.canShare({ files: [file] })) {
           try {
@@ -456,7 +346,6 @@ const Preview = () => {
               files: [file],
             });
             console.log("File shared successfully via Web Share API");
-            setIsSharing(false);
             return;
           } catch (shareError) {
             console.log(
@@ -483,7 +372,7 @@ const Preview = () => {
 
       const formData = new FormData();
       const file = new File(
-        [pdfBlob],
+        [currentPdfBlob],
         `quotation_${quotationId.replace("WIP_", "")}.pdf`,
         { type: "application/pdf" }
       );
@@ -503,7 +392,7 @@ const Preview = () => {
           headers: {
             "Content-Type": "multipart/form-data",
           },
-          timeout: 30000, // 30 seconds timeout
+          timeout: 30000,
         }
       );
 
@@ -539,14 +428,6 @@ const Preview = () => {
       setIsSharing(false);
     }
   }, [quotationId, quotation, pdfBlob, handleGeneratePDF]);
-
-  // Show PDF error if exists
-  useEffect(() => {
-    if (pdfError) {
-      console.error("PDF Error:", pdfError);
-      // You might want to show this error to the user
-    }
-  }, [pdfError]);
 
   if (isLoading) {
     return (
@@ -692,7 +573,7 @@ const Preview = () => {
                 ₹{calculateGrandTotal()}
               </p>
             </div>
-            {isConfirmed ? (
+            {!quotationId.startsWith("WIP_") ? (
               <div className="mt-4 flex gap-2 justify-center">
                 <button
                   onClick={handleDownload}
