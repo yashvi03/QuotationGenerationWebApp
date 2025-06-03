@@ -653,7 +653,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
             disabled={
               !selectedOptions.type ||
               selectedOptions.article.length > 0 ||
-              ( selectedOptions.size && nextStep !== "size")
+              selectedOptions.size
             }
             value={selectedOptions.size}
             onChange={(e) => handleSelection(e.target.value)}
@@ -759,42 +759,44 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
                       />
                     </div>
 
-                    {articleData.qty && articleData.qty > 0 && articleData.cat1Options.length > 0 && (
-                      <div className="flex items-center">
-                        <label className="mr-2 w-20">Category 1:</label>
-                        <select
-                          value={articleData.cat1 || ""}
-                          onChange={(e) =>
-                            updateArticleProperty(
-                              option.value,
-                              "cat1",
-                              e.target.value
-                            )
-                          }
-                          className={`border rounded p-2 flex-grow ${
-                            !articleData.cat1 &&
-                            articleData.cat1Options.length > 1
-                              ? "border-red-400"
-                              : ""
-                          }`}
-                          disabled={articleData.cat1Options.length === 1}
-                        >
-                          <option value="" disabled>
-                            {articleData.cat1Options.length === 1
-                              ? "Auto-selected"
-                              : "Select..."}
-                          </option>
-                          {articleData.cat1Options.map((catOption) => (
-                            <option
-                              key={catOption.value}
-                              value={catOption.value}
-                            >
-                              {catOption.value}
+                    {articleData.qty &&
+                      articleData.qty > 0 &&
+                      articleData.cat1Options.length > 0 && (
+                        <div className="flex items-center">
+                          <label className="mr-2 w-20">Category 1:</label>
+                          <select
+                            value={articleData.cat1 || ""}
+                            onChange={(e) =>
+                              updateArticleProperty(
+                                option.value,
+                                "cat1",
+                                e.target.value
+                              )
+                            }
+                            className={`border rounded p-2 flex-grow ${
+                              !articleData.cat1 &&
+                              articleData.cat1Options.length > 1
+                                ? "border-red-400"
+                                : ""
+                            }`}
+                            disabled={articleData.cat1Options.length === 1}
+                          >
+                            <option value="" disabled>
+                              {articleData.cat1Options.length === 1
+                                ? "Auto-selected"
+                                : "Select..."}
                             </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                            {articleData.cat1Options.map((catOption) => (
+                              <option
+                                key={catOption.value}
+                                value={catOption.value}
+                              >
+                                {catOption.value}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
 
                     {articleData.cat2Options.length > 0 && (
                       <div className="flex items-center">
