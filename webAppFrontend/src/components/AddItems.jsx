@@ -41,7 +41,38 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
   const typeSectionRef = useRef(null);
   const sizeSectionRef = useRef(null);
   const articleSectionRef = useRef(null);
-  // const summarySectionRef = useRef(null);
+
+  // Function to auto-select single option categories
+  const autoSelectSingleOptions = useCallback(
+    (articleValue, updatedArticle) => {
+      let autoUpdatedArticle = { ...updatedArticle };
+
+      // Auto-select cat1 if only one option
+      if (
+        autoUpdatedArticle.cat1Options.length === 1 &&
+        !autoUpdatedArticle.cat1
+      ) {
+        autoUpdatedArticle.cat1 = autoUpdatedArticle.cat1Options[0].value;
+
+        // Fetch cat2 options when cat1 is auto-selected
+        const fetchKey = `${articleValue}-cat2-auto`;
+        if (!pendingFetches.current.has(fetchKey)) {
+          pendingFetches.current.add(fetchKey);
+          fetchOptions({
+            type: selectedOptions.type,
+            size: selectedOptions.size,
+            article: articleValue,
+            cat1: autoUpdatedArticle.cat1,
+          }).finally(() => {
+            pendingFetches.current.delete(fetchKey);
+          });
+        }
+      }
+
+      return autoUpdatedArticle;
+    },
+    [selectedOptions.type, selectedOptions.size]
+  );
 
   // Memoized function to fetch category options from the API
   const fetchOptions = useCallback(async (filters) => {
@@ -56,13 +87,58 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
         setSelectedOptions((prev) => {
           const updatedArticles = prev.article.map((article) => {
             if (article.value === filters.article) {
+              let updatedArticle = { ...article };
+
               if (filters.cat2) {
-                return { ...article, cat3Options: filteredOptions };
+                updatedArticle.cat3Options = filteredOptions;
+                // Auto-select cat3 if only one option
+                if (filteredOptions.length === 1 && !updatedArticle.cat3) {
+                  updatedArticle.cat3 = filteredOptions[0].value;
+                }
               } else if (filters.cat1) {
-                return { ...article, cat2Options: filteredOptions };
+                updatedArticle.cat2Options = filteredOptions;
+                // Auto-select cat2 if only one option
+                if (filteredOptions.length === 1 && !updatedArticle.cat2) {
+                  updatedArticle.cat2 = filteredOptions[0].value;
+
+                  // Fetch cat3 options when cat2 is auto-selected
+                  const fetchKey = `${filters.article}-cat3-auto`;
+                  if (!pendingFetches.current.has(fetchKey)) {
+                    pendingFetches.current.add(fetchKey);
+                    fetchOptions({
+                      type: prev.type,
+                      size: prev.size,
+                      article: filters.article,
+                      cat1: filters.cat1,
+                      cat2: filteredOptions[0].value,
+                    }).finally(() => {
+                      pendingFetches.current.delete(fetchKey);
+                    });
+                  }
+                }
               } else {
-                return { ...article, cat1Options: filteredOptions };
+                updatedArticle.cat1Options = filteredOptions;
+                // Auto-select cat1 if only one option
+                if (filteredOptions.length === 1 && !updatedArticle.cat1) {
+                  updatedArticle.cat1 = filteredOptions[0].value;
+
+                  // Fetch cat2 options when cat1 is auto-selected
+                  const fetchKey = `${filters.article}-cat2-auto`;
+                  if (!pendingFetches.current.has(fetchKey)) {
+                    pendingFetches.current.add(fetchKey);
+                    fetchOptions({
+                      type: prev.type,
+                      size: prev.size,
+                      article: filters.article,
+                      cat1: filteredOptions[0].value,
+                    }).finally(() => {
+                      pendingFetches.current.delete(fetchKey);
+                    });
+                  }
+                }
               }
+
+              return updatedArticle;
             }
             return article;
           });
@@ -88,7 +164,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
           cat1Options: [],
           cat2Options: [],
           cat3Options: [],
-          cat1Fetched: false, // Flag to track if cat1Options have been fetched
+          cat1Fetched: false,
         })) || [];
 
       setSelectedOptions({
@@ -142,7 +218,6 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
 
   // Auto-scroll based on changes in nextStep
   useEffect(() => {
-    // Function to scroll to element with smooth behavior
     const scrollToElement = (element) => {
       if (element) {
         element.scrollIntoView({
@@ -152,7 +227,6 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
       }
     };
 
-    // Small delay to ensure DOM is updated and scrolling works properly
     const scrollTimeout = setTimeout(() => {
       if (
         nextStep === "size" &&
@@ -230,18 +304,15 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
   // Handle selection of type, size, or article
   const handleSelection = (value) => {
     if (nextStep === "article") {
-      // Modified to handle individual article deselection
       const existingArticleIndex = selectedOptions.article.findIndex(
         (item) => item.value === value
       );
 
-      // If article is already selected, remove it (deselect)
       if (existingArticleIndex >= 0) {
         const updatedArticles = selectedOptions.article.filter(
           (item) => item.value !== value
         );
 
-        // Update active article if needed
         if (activeArticle === value) {
           setActiveArticle(
             updatedArticles.length > 0 ? updatedArticles[0].value : null
@@ -253,7 +324,6 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
           article: updatedArticles,
         }));
       } else {
-        // Check if we can add a new article
         if (activeArticle) {
           const currentArticle = getArticleData(activeArticle);
           if (isArticleIncomplete(currentArticle)) {
@@ -264,7 +334,6 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
           }
         }
 
-        // Add new article
         const updatedArticles = [
           ...selectedOptions.article,
           {
@@ -372,7 +441,6 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
       setNextStep("type");
       setActiveArticle(null);
 
-      // Scroll to type section
       if (typeSectionRef.current) {
         typeSectionRef.current.scrollIntoView({ behavior: "smooth" });
       }
@@ -386,7 +454,6 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
       setNextStep("size");
       setActiveArticle(null);
 
-      // Scroll to size section
       if (sizeSectionRef.current) {
         sizeSectionRef.current.scrollIntoView({ behavior: "smooth" });
       }
@@ -400,7 +467,6 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
       setNextStep("article");
       setActiveArticle(null);
 
-      // Scroll to article section
       if (articleSectionRef.current) {
         articleSectionRef.current.scrollIntoView({ behavior: "smooth" });
       }
@@ -446,7 +512,6 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
 
   // Handle form submission
   const handleSubmit = async () => {
-    // Prevent multiple submissions
     if (isSubmitting) return;
 
     setIsSubmitting(true);
@@ -487,7 +552,6 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
       setNextStep("type");
       setActiveArticle(null);
 
-      // Notify parent component
       if (onItemAdded) {
         onItemAdded();
       }
@@ -706,11 +770,17 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
                             )
                           }
                           className={`border rounded p-2 flex-grow ${
-                            !articleData.cat1 ? "border-red-400" : ""
+                            !articleData.cat1 &&
+                            articleData.cat1Options.length > 1
+                              ? "border-red-400"
+                              : ""
                           }`}
+                          disabled={articleData.cat1Options.length === 1}
                         >
                           <option value="" disabled>
-                            Select...
+                            {articleData.cat1Options.length === 1
+                              ? "Auto-selected"
+                              : "Select..."}
                           </option>
                           {articleData.cat1Options.map((catOption) => (
                             <option
@@ -737,12 +807,20 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
                             )
                           }
                           className={`border rounded p-2 flex-grow ${
-                            !articleData.cat2 ? "border-red-400" : ""
+                            !articleData.cat2 &&
+                            articleData.cat2Options.length > 1
+                              ? "border-red-400"
+                              : ""
                           }`}
-                          disabled={!articleData.cat1}
+                          disabled={
+                            !articleData.cat1 ||
+                            articleData.cat2Options.length === 1
+                          }
                         >
                           <option value="" disabled>
-                            Select...
+                            {articleData.cat2Options.length === 1
+                              ? "Auto-selected"
+                              : "Select..."}
                           </option>
                           {articleData.cat2Options.map((catOption) => (
                             <option
@@ -769,12 +847,20 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
                             )
                           }
                           className={`border rounded p-2 flex-grow ${
-                            !articleData.cat3 ? "border-red-400" : ""
+                            !articleData.cat3 &&
+                            articleData.cat3Options.length > 1
+                              ? "border-red-400"
+                              : ""
                           }`}
-                          disabled={!articleData.cat2}
+                          disabled={
+                            !articleData.cat2 ||
+                            articleData.cat3Options.length === 1
+                          }
                         >
                           <option value="" disabled>
-                            Select...
+                            {articleData.cat3Options.length === 1
+                              ? "Auto-selected"
+                              : "Select..."}
                           </option>
                           {articleData.cat3Options.map((catOption) => (
                             <option
@@ -803,10 +889,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
 
       {/* Summary Section */}
       {selectedOptions.article.length > 0 && (
-        <div
-          className="mt-8 p-4 bg-gray-50 rounded-lg"
-          // ref={summarySectionRef}
-        >
+        <div className="mt-8 p-4 bg-gray-50 rounded-lg">
           <h3 className="font-semibold text-lg mb-2">Selected Items</h3>
           <ul className="divide-y">
             {selectedOptions.article.map((item, index) => {
