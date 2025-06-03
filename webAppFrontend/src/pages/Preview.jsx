@@ -81,6 +81,7 @@ const Preview = () => {
               final_price: item.final_price,
               quantity: item.quantity,
               mc_name: item.mc_name,
+              image_url: item.image_url,
             })),
           })),
           customer: {
@@ -218,11 +219,11 @@ const Preview = () => {
   const handleDownload = useCallback(async () => {
     try {
       setIsDownloading(true);
-      
+
       // Generate PDF if not available
       let currentPdfUrl = pdfUrl;
       let currentPdfBlob = pdfBlob;
-      
+
       if (!currentPdfUrl || !currentPdfBlob) {
         console.log("PDF not available, generating PDF first...");
         currentPdfUrl = await handleGeneratePDF(quotationId);
@@ -317,10 +318,10 @@ const Preview = () => {
   const handleShare = useCallback(async () => {
     try {
       setIsSharing(true);
-      
+
       // Generate PDF if not available
       let currentPdfBlob = pdfBlob;
-      
+
       if (!quotationId || !quotation || !currentPdfBlob) {
         console.log("PDF not available, generating PDF first...");
         await handleGeneratePDF(quotationId);
@@ -336,7 +337,9 @@ const Preview = () => {
       // Check if Web Share API is available and supports files
       if (navigator.share && navigator.canShare) {
         const fileName = `quotation_${quotationId.replace("WIP_", "")}.pdf`;
-        const file = new File([currentPdfBlob], fileName, { type: "application/pdf" });
+        const file = new File([currentPdfBlob], fileName, {
+          type: "application/pdf",
+        });
 
         if (navigator.canShare({ files: [file] })) {
           try {
