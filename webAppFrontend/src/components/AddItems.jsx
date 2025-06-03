@@ -759,7 +759,7 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
                       />
                     </div>
 
-                    {articleData.cat1Options.length > 0 && (
+                    {articleData.qty && articleData.qty > 0 && articleData.cat1Options.length > 0 && (
                       <div className="flex items-center">
                         <label className="mr-2 w-20">Category 1:</label>
                         <select
