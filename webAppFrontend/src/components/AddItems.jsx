@@ -798,7 +798,8 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
                         </div>
                       )}
 
-                    {articleData.cat2Options.length > 0 && (
+                    {articleData.qty &&
+                      articleData.qty > 0 && articleData.cat1 && articleData.cat2Options.length > 0 && (
                       <div className="flex items-center">
                         <label className="mr-2 w-20">Category 2:</label>
                         <select
@@ -838,7 +839,8 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
                       </div>
                     )}
 
-                    {articleData.cat3Options.length > 0 && (
+                    {articleData.qty &&
+                      articleData.qty > 0 && articleData.cat1 && articleData.cat3Options.length > 0 && (
                       <div className="flex items-center">
                         <label className="mr-2 w-20">Category 3:</label>
                         <select
