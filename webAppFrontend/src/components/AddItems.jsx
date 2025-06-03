@@ -651,7 +651,9 @@ const AddItems = ({ edit, isEditMode, onItemAdded }) => {
                 : "border-black"
             }`}
             disabled={
-              !selectedOptions.type || selectedOptions.article.length > 0
+              !selectedOptions.type ||
+              selectedOptions.article.length > 0 ||
+              (isEditMode && selectedOptions.size && nextStep !== "size")
             }
             value={selectedOptions.size}
             onChange={(e) => handleSelection(e.target.value)}
