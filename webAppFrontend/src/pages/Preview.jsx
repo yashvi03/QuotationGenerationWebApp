@@ -6,7 +6,7 @@ import ConfirmationModal from "../components/ConfirmationModel";
 import { editFinalQuotation } from "../services/api";
 import { useLocation } from "react-router-dom";
 
-// Android Bridge Class
+// Enhanced Android Bridge Class with WhatsApp-specific methods
 class AndroidBridge {
   constructor() {
     this.isAndroid = this.checkIfAndroid();
@@ -14,29 +14,192 @@ class AndroidBridge {
   }
 
   checkIfAndroid() {
-    return (
-      typeof window.Android !== "undefined" && window.Android.isAndroidApp()
-    );
+    const hasAndroidObject = typeof window.Android !== "undefined";
+    const hasIsAndroidApp =
+      hasAndroidObject && typeof window.Android.isAndroidApp === "function";
+    const isAndroidResult = hasIsAndroidApp
+      ? window.Android.isAndroidApp()
+      : false;
+
+    console.log("Android Detection:", {
+      hasAndroidObject,
+      hasIsAndroidApp,
+      isAndroidResult,
+      userAgent: navigator.userAgent,
+    });
+
+    return hasAndroidObject && hasIsAndroidApp && isAndroidResult;
   }
 
   initializeBridge() {
     if (this.isAndroid) {
       console.log("Android WebView detected - Native features available");
+      this.logAvailableAndroidMethods();
     } else {
       console.log("Running in browser - Using web fallbacks");
     }
   }
 
-  // PDF Download Function
+  logAvailableAndroidMethods() {
+    if (typeof window.Android === "object") {
+      const methods = Object.getOwnPropertyNames(window.Android);
+      console.log("Available Android methods:", methods);
+
+      // Check specific methods we need for WhatsApp sharing
+      const requiredMethods = [
+        "shareFile",
+        "shareToWhatsApp",
+        "shareToWhatsAppWithPhone",
+        "downloadFile",
+        "showToast",
+        "isAndroidApp",
+        "isWhatsAppInstalled",
+      ];
+      requiredMethods.forEach((method) => {
+        const exists = typeof window.Android[method] === "function";
+        console.log(`Android.${method}: ${exists ? "Available" : "Missing"}`);
+      });
+    }
+  }
+
+  // Check if WhatsApp is installed
+  isWhatsAppInstalled() {
+    if (
+      this.isAndroid &&
+      typeof window.Android.isWhatsAppInstalled === "function"
+    ) {
+      try {
+        return window.Android.isWhatsAppInstalled();
+      } catch (error) {
+        console.error("Error checking WhatsApp installation:", error);
+        return false;
+      }
+    }
+    return false;
+  }
+
+  // Share directly to WhatsApp with phone number
+  async shareToWhatsAppWithPhone(
+    fileData,
+    filename,
+    phoneNumber,
+    message = ""
+  ) {
+    console.log("shareToWhatsAppWithPhone called:", {
+      filename,
+      phoneNumber: phoneNumber ? `***${phoneNumber.slice(-4)}` : "none",
+      message,
+      dataType: typeof fileData,
+      dataSize: fileData instanceof Blob ? fileData.size : "unknown",
+    });
+
+    try {
+      if (!this.isAndroid) {
+        throw new Error("WhatsApp sharing only available in Android app");
+      }
+
+      if (typeof window.Android.shareToWhatsAppWithPhone !== "function") {
+        console.log(
+          "shareToWhatsAppWithPhone not available, falling back to general share"
+        );
+        return this.shareToWhatsApp(fileData, filename, message);
+      }
+
+      const base64Data = await this.convertToBase64(fileData);
+      console.log(
+        "Base64 conversion completed for WhatsApp, length:",
+        base64Data.length
+      );
+
+      const result = window.Android.shareToWhatsAppWithPhone(
+        base64Data,
+        filename,
+        phoneNumber,
+        message || `Quotation: ${filename}`
+      );
+
+      console.log("Android.shareToWhatsAppWithPhone result:", result);
+      return result;
+    } catch (error) {
+      console.error("WhatsApp phone share failed:", error);
+      throw error;
+    }
+  }
+
+  // Share to WhatsApp (general)
+  async shareToWhatsApp(fileData, filename, message = "") {
+    console.log("shareToWhatsApp called:", {
+      filename,
+      message,
+      dataType: typeof fileData,
+      dataSize: fileData instanceof Blob ? fileData.size : "unknown",
+    });
+
+    try {
+      if (!this.isAndroid) {
+        throw new Error("WhatsApp sharing only available in Android app");
+      }
+
+      if (typeof window.Android.shareToWhatsApp !== "function") {
+        console.log(
+          "shareToWhatsApp not available, falling back to general file share"
+        );
+        return this.shareFile(fileData, filename, "application/pdf", message);
+      }
+
+      const base64Data = await this.convertToBase64(fileData);
+      console.log(
+        "Base64 conversion completed for WhatsApp, length:",
+        base64Data.length
+      );
+
+      const result = window.Android.shareToWhatsApp(
+        base64Data,
+        filename,
+        message || `Quotation: ${filename}`
+      );
+
+      console.log("Android.shareToWhatsApp result:", result);
+      return result;
+    } catch (error) {
+      console.error("WhatsApp share failed:", error);
+      throw error;
+    }
+  }
+
+  // PDF Download Function with enhanced error handling
   async downloadPDF(pdfData, filename = "document.pdf") {
+    console.log("downloadPDF called:", {
+      isAndroid: this.isAndroid,
+      filename,
+      dataType: typeof pdfData,
+      dataSize: pdfData instanceof Blob ? pdfData.size : "unknown",
+    });
+
     try {
       if (this.isAndroid) {
-        // Use Android native download
+        if (typeof window.Android.downloadFile !== "function") {
+          throw new Error("Android.downloadFile method not available");
+        }
+
+        console.log("Using Android native download");
         const base64Data = await this.convertToBase64(pdfData);
-        window.Android.downloadFile(base64Data, filename, "application/pdf");
-        return true;
+        console.log("Base64 conversion completed, length:", base64Data.length);
+
+        try {
+          const result = window.Android.downloadFile(
+            base64Data,
+            filename,
+            "application/pdf"
+          );
+          console.log("Android.downloadFile result:", result);
+          return true;
+        } catch (androidError) {
+          console.error("Android.downloadFile failed:", androidError);
+          throw androidError;
+        }
       } else {
-        // Browser fallback
+        console.log("Using browser fallback for download");
         return this.browserDownload(pdfData, filename, "application/pdf");
       }
     } catch (error) {
@@ -45,15 +208,50 @@ class AndroidBridge {
     }
   }
 
-  // Share file (PDF, image, etc.)
+  // Enhanced Share file with WhatsApp priority
   async shareFile(fileData, filename, mimeType, title = "Shared file") {
+    console.log("shareFile called:", {
+      isAndroid: this.isAndroid,
+      filename,
+      mimeType,
+      title,
+      dataType: typeof fileData,
+      dataSize: fileData instanceof Blob ? fileData.size : "unknown",
+    });
+
     try {
       if (this.isAndroid) {
+        if (typeof window.Android.shareFile !== "function") {
+          console.error("Android.shareFile method not available");
+          throw new Error("Android.shareFile method not available");
+        }
+
+        console.log("Converting file data to base64...");
         const base64Data = await this.convertToBase64(fileData);
-        window.Android.shareFile(base64Data, filename, mimeType, title);
-        return true;
+        console.log("Base64 conversion completed, length:", base64Data.length);
+
+        try {
+          console.log("Calling Android.shareFile with params:", {
+            filename,
+            mimeType,
+            title,
+            base64Length: base64Data.length,
+          });
+
+          const result = window.Android.shareFile(
+            base64Data,
+            filename,
+            mimeType,
+            title
+          );
+          console.log("Android.shareFile result:", result);
+          return true;
+        } catch (androidError) {
+          console.error("Android.shareFile failed:", androidError);
+          throw androidError;
+        }
       } else {
-        // Browser fallback - use Web Share API or fallback
+        console.log("Using browser fallback for sharing");
         if (navigator.share && navigator.canShare) {
           const file = new File([fileData], filename, { type: mimeType });
           if (navigator.canShare({ files: [file] })) {
@@ -64,7 +262,6 @@ class AndroidBridge {
             return true;
           }
         }
-        // Fallback to download
         return this.browserDownload(fileData, filename, mimeType);
       }
     } catch (error) {
@@ -73,41 +270,77 @@ class AndroidBridge {
     }
   }
 
-  // Helper function to convert various data types to base64
+  // Enhanced base64 conversion with better error handling
   async convertToBase64(data) {
-    if (typeof data === "string" && data.startsWith("data:")) {
-      return data; // Already base64
-    }
+    console.log("Converting to base64:", {
+      dataType: typeof data,
+      isBlob: data instanceof Blob,
+      isArrayBuffer: data instanceof ArrayBuffer,
+      isString: typeof data === "string",
+    });
 
-    if (data instanceof Blob) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(data);
-      });
-    }
+    try {
+      if (typeof data === "string" && data.startsWith("data:")) {
+        console.log("Data is already base64");
+        return data;
+      }
 
-    if (data instanceof ArrayBuffer) {
-      const blob = new Blob([data]);
-      return this.convertToBase64(blob);
-    }
+      if (data instanceof Blob) {
+        console.log("Converting Blob to base64, size:", data.size);
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            console.log(
+              "FileReader completed, result length:",
+              reader.result.length
+            );
+            resolve(reader.result);
+          };
+          reader.onerror = (error) => {
+            console.error("FileReader error:", error);
+            reject(error);
+          };
+          reader.readAsDataURL(data);
+        });
+      }
 
-    if (typeof data === "string") {
-      // Assume it's raw data, convert to base64
-      return `data:application/octet-stream;base64,${btoa(data)}`;
-    }
+      if (data instanceof ArrayBuffer) {
+        console.log(
+          "Converting ArrayBuffer to base64, byteLength:",
+          data.byteLength
+        );
+        const blob = new Blob([data]);
+        return this.convertToBase64(blob);
+      }
 
-    throw new Error("Unsupported data type for base64 conversion");
+      if (typeof data === "string") {
+        console.log("Converting string to base64, length:", data.length);
+        return `data:application/octet-stream;base64,${btoa(data)}`;
+      }
+
+      throw new Error(
+        "Unsupported data type for base64 conversion: " + typeof data
+      );
+    } catch (error) {
+      console.error("Base64 conversion failed:", error);
+      throw error;
+    }
   }
 
   // Browser download fallback
   browserDownload(data, filename, mimeType) {
+    console.log("Browser download:", {
+      filename,
+      mimeType,
+      dataType: typeof data,
+    });
+
     try {
       const blob =
         data instanceof Blob ? data : new Blob([data], { type: mimeType });
-      const url = URL.createObjectURL(blob);
+      console.log("Created blob, size:", blob.size);
 
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
@@ -116,6 +349,7 @@ class AndroidBridge {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
+      console.log("Browser download completed");
       return true;
     } catch (error) {
       console.error("Browser download failed:", error);
@@ -123,16 +357,85 @@ class AndroidBridge {
     }
   }
 
-  // Show message (uses Android toast if available)
+  // Enhanced message showing with fallback
   showMessage(message) {
+    console.log("showMessage called:", { message, isAndroid: this.isAndroid });
+
     if (this.isAndroid) {
-      window.Android.showToast(message);
+      try {
+        if (typeof window.Android.showToast === "function") {
+          window.Android.showToast(message);
+          console.log("Android toast shown");
+        } else {
+          console.warn("Android.showToast not available, using fallback");
+          this.browserShowMessage(message);
+        }
+      } catch (error) {
+        console.error("Android.showToast failed:", error);
+        this.browserShowMessage(message);
+      }
     } else {
-      // Browser fallback
-      console.log(message);
-      // You could show a custom notification here instead of alert
-      alert(message);
+      this.browserShowMessage(message);
     }
+  }
+
+  browserShowMessage(message) {
+    console.log("Browser message:", message);
+    alert(message);
+  }
+
+  // Test method to verify Android bridge functionality
+  testAndroidBridge() {
+    console.log("Testing Android Bridge...");
+
+    if (!this.isAndroid) {
+      console.log("Not running in Android, skipping bridge test");
+      return false;
+    }
+
+    const tests = [
+      {
+        name: "showToast",
+        test: () => {
+          if (typeof window.Android.showToast === "function") {
+            window.Android.showToast("Bridge test message");
+            return true;
+          }
+          return false;
+        },
+      },
+      {
+        name: "isAndroidApp",
+        test: () => {
+          if (typeof window.Android.isAndroidApp === "function") {
+            return window.Android.isAndroidApp();
+          }
+          return false;
+        },
+      },
+      {
+        name: "isWhatsAppInstalled",
+        test: () => {
+          if (typeof window.Android.isWhatsAppInstalled === "function") {
+            return window.Android.isWhatsAppInstalled();
+          }
+          return false;
+        },
+      },
+    ];
+
+    const results = tests.map((test) => {
+      try {
+        const result = test.test();
+        console.log(`Test ${test.name}: ${result ? "PASS" : "FAIL"}`);
+        return { name: test.name, result, error: null };
+      } catch (error) {
+        console.error(`Test ${test.name}: ERROR`, error);
+        return { name: test.name, result: false, error: error.message };
+      }
+    });
+
+    return results;
   }
 }
 
@@ -298,7 +601,6 @@ const Preview = () => {
           throw new Error("Invalid quotation data: Missing cards or customer");
         }
         setQuotation(response.data);
-
         scrollToTop();
       } catch (error) {
         setError(error.message || "Error fetching quotation");
@@ -353,7 +655,6 @@ const Preview = () => {
     try {
       setIsDownloading(true);
 
-      // Generate PDF if not available
       let currentPdfBlob = pdfBlob;
 
       if (!pdfUrl || !currentPdfBlob) {
@@ -371,8 +672,6 @@ const Preview = () => {
       console.log("Starting download...");
 
       const filename = `quotation_${quotationId.replace("WIP_", "")}.pdf`;
-
-      // Use Android Bridge for download
       const success = await androidBridge.current.downloadPDF(
         currentPdfBlob,
         filename
@@ -450,116 +749,202 @@ const Preview = () => {
     localStorage.setItem("quotationId", response.data.quotation_id);
   }, [navigate, quotation]);
 
+  // Enhanced WhatsApp share function
   const handleShare = useCallback(async () => {
+    console.log("=== handleShare started ===");
+    console.log("Initial state:", {
+      quotationId,
+      hasQuotation: !!quotation,
+      hasPdfBlob: !!pdfBlob,
+      isAndroid: androidBridge.current.isAndroid,
+      isWhatsAppInstalled: androidBridge.current.isWhatsAppInstalled(),
+    });
+
     try {
       setIsSharing(true);
+
+      // Test Android bridge first if on Android
+      if (androidBridge.current.isAndroid) {
+        console.log("Testing Android bridge functionality...");
+        const testResults = androidBridge.current.testAndroidBridge();
+        console.log("Bridge test results:", testResults);
+      }
 
       // Generate PDF if not available
       let currentPdfBlob = pdfBlob;
 
       if (!quotationId || !quotation || !currentPdfBlob) {
-        console.log("PDF not available, generating PDF first...");
-        await handleGeneratePDF(quotationId);
-        if (!pdfBlob) {
+        console.log("PDF not available, generating PDF first...", {
+          hasQuotationId: !!quotationId,
+          hasQuotation: !!quotation,
+          hasPdfBlob: !!currentPdfBlob,
+        });
+
+        const pdfUrl = await handleGeneratePDF(quotationId);
+        if (!pdfUrl || !pdfBlob) {
+          console.error("PDF generation failed");
           androidBridge.current.showMessage(
             "Failed to generate PDF. Please try again."
           );
           return;
         }
         currentPdfBlob = pdfBlob;
-      }
-
-      console.log("Starting share process...");
-
-      const filename = `quotation_${quotationId.replace("WIP_", "")}.pdf`;
-      const title = `Quotation ${quotationId.replace("WIP_", "")} - ${
-        quotation.customer.name
-      }`;
-
-      // Try Android Bridge first
-      const success = await androidBridge.current.shareFile(
-        currentPdfBlob,
-        filename,
-        "application/pdf",
-        title
-      );
-
-      if (success) {
-        androidBridge.current.showMessage("Quotation shared successfully!");
-        console.log("File shared successfully via Android Bridge");
-        return;
-      }
-
-      // If Android Bridge fails, fall back to your existing WhatsApp logic
-      const customerPhone =
-        quotation.customer.whatsapp_number || quotation.customer.phone_number;
-      if (!customerPhone) {
-        throw new Error(
-          "Customer phone number not found. Please add a phone number to the customer profile."
+        console.log(
+          "PDF generated successfully, blob size:",
+          currentPdfBlob.size
         );
       }
 
-      const cleanPhone = customerPhone.replace(/\D/g, "");
-      if (cleanPhone.length < 10) {
-        throw new Error("Invalid phone number. Must be at least 10 digits.");
-      }
+      const filename = `quotation_${quotationId.replace("WIP_", "")}.pdf`;
+      const customerName = quotation.customer.name;
+      const shareMessage = `Quotation for ${customerName} - ${filename}`;
 
-      const formData = new FormData();
-      const file = new File([currentPdfBlob], filename, {
-        type: "application/pdf",
-      });
-      formData.append("file", file);
-      formData.append("phone_number", cleanPhone);
-
-      console.log("Uploading PDF for WhatsApp sharing:", {
-        fileName: file.name,
-        fileSize: file.size,
-        phoneNumber: cleanPhone ? `***${cleanPhone.slice(-4)}` : "none",
+      console.log("Share parameters:", {
+        filename,
+        customerName,
+        shareMessage,
       });
 
-      const uploadResponse = await axiosInstance.post(
-        "/upload-quotation",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          timeout: 30000,
+      // Try Android native WhatsApp sharing first
+      if (androidBridge.current.isAndroid) {
+        console.log("Attempting Android WhatsApp share...");
+
+        // Check if customer has WhatsApp number
+        const customerPhone =
+          quotation.customer.whatsapp_number || quotation.customer.phone_number;
+
+        if (customerPhone) {
+          const cleanPhone = customerPhone.replace(/\D/g, "");
+          console.log("Customer phone found, attempting direct WhatsApp share");
+
+          if (cleanPhone.length >= 10) {
+            try {
+              const success =
+                await androidBridge.current.shareToWhatsAppWithPhone(
+                  currentPdfBlob,
+                  filename,
+                  cleanPhone,
+                  shareMessage
+                );
+
+              if (success) {
+                androidBridge.current.showMessage(
+                  "Quotation shared to WhatsApp successfully!"
+                );
+                console.log("WhatsApp direct share successful");
+                return;
+              }
+            } catch (whatsappError) {
+              console.warn(
+                "Direct WhatsApp share failed, trying general WhatsApp share:",
+                whatsappError
+              );
+            }
+          }
         }
-      );
 
-      console.log("Upload response:", uploadResponse.data);
+        // Fallback to general WhatsApp share
+        try {
+          console.log("Attempting general WhatsApp share...");
+          const success = await androidBridge.current.shareToWhatsApp(
+            currentPdfBlob,
+            filename,
+            shareMessage
+          );
 
-      if (uploadResponse.data.message !== "File uploaded successfully!") {
-        throw new Error(uploadResponse.data.error || "Failed to upload PDF.");
+          if (success) {
+            androidBridge.current.showMessage(
+              "Quotation shared to WhatsApp successfully!"
+            );
+            console.log("WhatsApp general share successful");
+            return;
+          }
+        } catch (whatsappError) {
+          console.warn(
+            "General WhatsApp share failed, trying system share:",
+            whatsappError
+          );
+        }
+
+        // Fallback to system share dialog
+        try {
+          console.log("Attempting system share dialog...");
+          const success = await androidBridge.current.shareFile(
+            currentPdfBlob,
+            filename,
+            "application/pdf",
+            shareMessage
+          );
+
+          if (success) {
+            androidBridge.current.showMessage("Quotation shared successfully!");
+            console.log("System share successful");
+            return;
+          }
+        } catch (systemShareError) {
+          console.error("System share failed:", systemShareError);
+        }
       }
 
-      androidBridge.current.showMessage(
-        "Quotation shared successfully via WhatsApp!"
+      // Browser/Web fallback - try Web Share API or download
+      console.log("Attempting web fallback...");
+
+      if (navigator.share && navigator.canShare) {
+        try {
+          const file = new File([currentPdfBlob], filename, {
+            type: "application/pdf",
+          });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: shareMessage,
+              files: [file],
+            });
+            androidBridge.current.showMessage("Quotation shared successfully!");
+            return;
+          }
+        } catch (webShareError) {
+          console.warn("Web Share API failed:", webShareError);
+        }
+      }
+
+      // Final fallback - download the file
+      console.log("All sharing methods failed, falling back to download");
+      const success = androidBridge.current.browserDownload(
+        currentPdfBlob,
+        filename,
+        "application/pdf"
       );
+
+      if (success) {
+        androidBridge.current.showMessage(
+          "Quotation downloaded. You can manually share the downloaded file."
+        );
+      } else {
+        throw new Error("All sharing methods failed");
+      }
     } catch (error) {
+      console.error("=== handleShare failed ===");
       console.error("Error sharing quotation:", error);
+
       let errorMessage = "Failed to share the quotation. ";
-      if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
+
+      if (error.message.includes("WhatsApp sharing only available")) {
+        errorMessage +=
+          "WhatsApp sharing is only available in the Android app.";
+      } else if (error.message.includes("timeout")) {
         errorMessage +=
           "The operation timed out. Please check your internet connection.";
-      } else if (error.message.includes("No file uploaded")) {
-        errorMessage += "No PDF file was uploaded. Please regenerate the PDF.";
-      } else if (error.message.includes("Phone number is required")) {
-        errorMessage += "Please provide a valid customer phone number.";
-      } else if (error.message.includes("Invalid phone number")) {
-        errorMessage +=
-          "The phone number is invalid. Please check and try again.";
-      } else if (error.response) {
-        errorMessage +=
-          error.response.data?.error ||
-          `Server error: ${error.response.status}`;
+      } else if (error.message.includes("PDF generation")) {
+        errorMessage += "Failed to generate PDF. Please try again.";
       } else {
         errorMessage += error.message;
       }
+
       androidBridge.current.showMessage(errorMessage);
+      console.error("Final error message:", errorMessage);
     } finally {
       setIsSharing(false);
+      console.log("=== handleShare cleanup completed ===");
     }
   }, [quotationId, quotation, pdfBlob, handleGeneratePDF]);
 
@@ -567,7 +952,9 @@ const Preview = () => {
   useEffect(() => {
     if (androidBridge.current.isAndroid) {
       document.body.classList.add("android-app");
-      console.log("Running in Android WebView - Enhanced features available");
+      console.log(
+        "Running in Android WebView - Enhanced WhatsApp features available"
+      );
     }
   }, []);
 
@@ -588,14 +975,6 @@ const Preview = () => {
 
   return (
     <div className="p-4 sm:p-6 mx-auto bg-gray-100 min-h-screen">
-      {/* Show Android status indicator */}
-      {androidBridge.current.isAndroid && (
-        <div className="mb-4 p-2 bg-blue-100 border border-blue-300 text-blue-700 rounded text-sm">
-          <span className="font-semibold">📱 Android Mode:</span> Enhanced
-          download and share features available
-        </div>
-      )}
-
       {/* Show PDF error if exists */}
       {pdfError && (
         <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -751,9 +1130,7 @@ const Preview = () => {
                           d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                         />
                       </svg>
-                      {androidBridge.current.isAndroid
-                        ? "Native Download"
-                        : "Download"}
+                      Download
                     </>
                   )}
                 </button>
