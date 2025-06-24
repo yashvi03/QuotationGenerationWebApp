@@ -6,6 +6,136 @@ import ConfirmationModal from "../components/ConfirmationModel";
 import { editFinalQuotation } from "../services/api";
 import { useLocation } from "react-router-dom";
 
+// Android Bridge Class
+class AndroidBridge {
+  constructor() {
+    this.isAndroid = this.checkIfAndroid();
+    this.initializeBridge();
+  }
+
+  checkIfAndroid() {
+    return (
+      typeof window.Android !== "undefined" && window.Android.isAndroidApp()
+    );
+  }
+
+  initializeBridge() {
+    if (this.isAndroid) {
+      console.log("Android WebView detected - Native features available");
+    } else {
+      console.log("Running in browser - Using web fallbacks");
+    }
+  }
+
+  // PDF Download Function
+  async downloadPDF(pdfData, filename = "document.pdf") {
+    try {
+      if (this.isAndroid) {
+        // Use Android native download
+        const base64Data = await this.convertToBase64(pdfData);
+        window.Android.downloadFile(base64Data, filename, "application/pdf");
+        return true;
+      } else {
+        // Browser fallback
+        return this.browserDownload(pdfData, filename, "application/pdf");
+      }
+    } catch (error) {
+      console.error("Download failed:", error);
+      return false;
+    }
+  }
+
+  // Share file (PDF, image, etc.)
+  async shareFile(fileData, filename, mimeType, title = "Shared file") {
+    try {
+      if (this.isAndroid) {
+        const base64Data = await this.convertToBase64(fileData);
+        window.Android.shareFile(base64Data, filename, mimeType, title);
+        return true;
+      } else {
+        // Browser fallback - use Web Share API or fallback
+        if (navigator.share && navigator.canShare) {
+          const file = new File([fileData], filename, { type: mimeType });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: title,
+              files: [file],
+            });
+            return true;
+          }
+        }
+        // Fallback to download
+        return this.browserDownload(fileData, filename, mimeType);
+      }
+    } catch (error) {
+      console.error("Share failed:", error);
+      return false;
+    }
+  }
+
+  // Helper function to convert various data types to base64
+  async convertToBase64(data) {
+    if (typeof data === "string" && data.startsWith("data:")) {
+      return data; // Already base64
+    }
+
+    if (data instanceof Blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(data);
+      });
+    }
+
+    if (data instanceof ArrayBuffer) {
+      const blob = new Blob([data]);
+      return this.convertToBase64(blob);
+    }
+
+    if (typeof data === "string") {
+      // Assume it's raw data, convert to base64
+      return `data:application/octet-stream;base64,${btoa(data)}`;
+    }
+
+    throw new Error("Unsupported data type for base64 conversion");
+  }
+
+  // Browser download fallback
+  browserDownload(data, filename, mimeType) {
+    try {
+      const blob =
+        data instanceof Blob ? data : new Blob([data], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      return true;
+    } catch (error) {
+      console.error("Browser download failed:", error);
+      return false;
+    }
+  }
+
+  // Show message (uses Android toast if available)
+  showMessage(message) {
+    if (this.isAndroid) {
+      window.Android.showToast(message);
+    } else {
+      // Browser fallback
+      console.log(message);
+      // You could show a custom notification here instead of alert
+      alert(message);
+    }
+  }
+}
+
 const Preview = () => {
   const [quotation, setQuotation] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -22,6 +152,9 @@ const Preview = () => {
   const location = useLocation();
   const { id } = useParams();
   const pdfGeneratedRef = useRef(false);
+
+  // Initialize Android Bridge
+  const androidBridge = useRef(new AndroidBridge());
 
   // Scroll to top function
   const scrollToTop = useCallback(() => {
@@ -221,37 +354,39 @@ const Preview = () => {
       setIsDownloading(true);
 
       // Generate PDF if not available
-      let currentPdfUrl = pdfUrl;
       let currentPdfBlob = pdfBlob;
 
-      if (!currentPdfUrl || !currentPdfBlob) {
+      if (!pdfUrl || !currentPdfBlob) {
         console.log("PDF not available, generating PDF first...");
-        currentPdfUrl = await handleGeneratePDF(quotationId);
-        if (!currentPdfUrl) {
-          alert("Failed to generate PDF. Please try again.");
+        await handleGeneratePDF(quotationId);
+        if (!pdfBlob) {
+          androidBridge.current.showMessage(
+            "Failed to generate PDF. Please try again."
+          );
           return;
         }
-        // Get the updated blob from state
         currentPdfBlob = pdfBlob;
       }
 
       console.log("Starting download...");
 
-      const link = document.createElement("a");
-      link.href = currentPdfUrl;
-      link.setAttribute(
-        "download",
-        `quotation_${quotationId.replace("WIP_", "")}.pdf`
+      const filename = `quotation_${quotationId.replace("WIP_", "")}.pdf`;
+
+      // Use Android Bridge for download
+      const success = await androidBridge.current.downloadPDF(
+        currentPdfBlob,
+        filename
       );
 
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      console.log("PDF download initiated");
+      if (success) {
+        androidBridge.current.showMessage("PDF downloaded successfully!");
+        console.log("PDF download completed successfully");
+      } else {
+        androidBridge.current.showMessage("Download failed. Please try again.");
+      }
     } catch (err) {
       console.error("Download failed:", err);
-      alert("Download failed. Please try again.");
+      androidBridge.current.showMessage("Download failed. Please try again.");
     } finally {
       setIsDownloading(false);
     }
@@ -326,7 +461,9 @@ const Preview = () => {
         console.log("PDF not available, generating PDF first...");
         await handleGeneratePDF(quotationId);
         if (!pdfBlob) {
-          alert("Failed to generate PDF. Please try again.");
+          androidBridge.current.showMessage(
+            "Failed to generate PDF. Please try again."
+          );
           return;
         }
         currentPdfBlob = pdfBlob;
@@ -334,32 +471,26 @@ const Preview = () => {
 
       console.log("Starting share process...");
 
-      // Check if Web Share API is available and supports files
-      if (navigator.share && navigator.canShare) {
-        const fileName = `quotation_${quotationId.replace("WIP_", "")}.pdf`;
-        const file = new File([currentPdfBlob], fileName, {
-          type: "application/pdf",
-        });
+      const filename = `quotation_${quotationId.replace("WIP_", "")}.pdf`;
+      const title = `Quotation ${quotationId.replace("WIP_", "")} - ${
+        quotation.customer.name
+      }`;
 
-        if (navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              title: `Quotation ${quotationId.replace("WIP_", "")}`,
-              text: `Please find attached the quotation for ${quotation.customer.name}`,
-              files: [file],
-            });
-            console.log("File shared successfully via Web Share API");
-            return;
-          } catch (shareError) {
-            console.log(
-              "Web Share API failed, falling back to WhatsApp:",
-              shareError
-            );
-          }
-        }
+      // Try Android Bridge first
+      const success = await androidBridge.current.shareFile(
+        currentPdfBlob,
+        filename,
+        "application/pdf",
+        title
+      );
+
+      if (success) {
+        androidBridge.current.showMessage("Quotation shared successfully!");
+        console.log("File shared successfully via Android Bridge");
+        return;
       }
 
-      // Fallback to WhatsApp sharing via upload
+      // If Android Bridge fails, fall back to your existing WhatsApp logic
       const customerPhone =
         quotation.customer.whatsapp_number || quotation.customer.phone_number;
       if (!customerPhone) {
@@ -374,11 +505,9 @@ const Preview = () => {
       }
 
       const formData = new FormData();
-      const file = new File(
-        [currentPdfBlob],
-        `quotation_${quotationId.replace("WIP_", "")}.pdf`,
-        { type: "application/pdf" }
-      );
+      const file = new File([currentPdfBlob], filename, {
+        type: "application/pdf",
+      });
       formData.append("file", file);
       formData.append("phone_number", cleanPhone);
 
@@ -405,7 +534,9 @@ const Preview = () => {
         throw new Error(uploadResponse.data.error || "Failed to upload PDF.");
       }
 
-      alert("Quotation shared successfully via WhatsApp!");
+      androidBridge.current.showMessage(
+        "Quotation shared successfully via WhatsApp!"
+      );
     } catch (error) {
       console.error("Error sharing quotation:", error);
       let errorMessage = "Failed to share the quotation. ";
@@ -426,11 +557,19 @@ const Preview = () => {
       } else {
         errorMessage += error.message;
       }
-      alert(errorMessage);
+      androidBridge.current.showMessage(errorMessage);
     } finally {
       setIsSharing(false);
     }
   }, [quotationId, quotation, pdfBlob, handleGeneratePDF]);
+
+  // Add Android-specific UI indicator
+  useEffect(() => {
+    if (androidBridge.current.isAndroid) {
+      document.body.classList.add("android-app");
+      console.log("Running in Android WebView - Enhanced features available");
+    }
+  }, []);
 
   if (isLoading) {
     return (
@@ -449,6 +588,14 @@ const Preview = () => {
 
   return (
     <div className="p-4 sm:p-6 mx-auto bg-gray-100 min-h-screen">
+      {/* Show Android status indicator */}
+      {androidBridge.current.isAndroid && (
+        <div className="mb-4 p-2 bg-blue-100 border border-blue-300 text-blue-700 rounded text-sm">
+          <span className="font-semibold">📱 Android Mode:</span> Enhanced
+          download and share features available
+        </div>
+      )}
+
       {/* Show PDF error if exists */}
       {pdfError && (
         <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -604,7 +751,9 @@ const Preview = () => {
                           d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                         />
                       </svg>
-                      Download
+                      {androidBridge.current.isAndroid
+                        ? "Native Download"
+                        : "Download"}
                     </>
                   )}
                 </button>
